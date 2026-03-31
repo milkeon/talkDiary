@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>talkDiary - 대화만 하면 일기가 뚝딱!</title>
+    <!-- Google Fonts: Outfit & Noto Sans KR -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fas fa-feather-alt"></i>
+                <span>talkDiary</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-view="chat-view"><i class="fas fa-comment-dots"></i> <span>기록하기</span></li>
+                <li data-view="history-view"><i class="fas fa-history"></i> <span>지난 기록</span></li>
+                <li data-view="summary-view"><i class="fas fa-chart-pie"></i> <span>주간 요약</span></li>
+            </ul>
+            <div class="user-profile">
+                <div class="avatar">U</div>
+                <div class="info">
+                    <p class="name">User</p>
+                    <p class="status">Online</p>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <!-- Header -->
+            <header>
+                <h1 id="view-title">기록하기</h1>
+                <div class="header-controls">
+                    <input type="date" id="date-selector" class="date-input">
+                </div>
+            </header>
+
+            <!-- Chat View (Main Interaction) -->
+            <section id="chat-view" class="view-section active">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        <!-- Messages will be injected here -->
+                    </div>
+                    <div class="chat-input-area">
+                        <textarea id="user-input" placeholder="메시지를 입력하세요..." rows="1"></textarea>
+                        <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History View -->
+            <section id="history-view" class="view-section">
+                <div class="history-grid" id="history-list">
+                    <!-- History cards will be injected here -->
+                </div>
+            </section>
+
+            <!-- Summary View -->
+            <section id="summary-view" class="view-section">
+                <div class="summary-dashboard">
+                    <div class="summary-cards">
+                        <div class="summary-card">
+                            <h3>이번 주 기분 통계</h3>
+                            <div id="mood-stats">데이터를 불러오는 중...</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>가장 많이 나온 키워드</h3>
+                            <div id="keyword-stats">데이터를 불러오는 중...</div>
+                        </div>
+                    </div>
+                    <div class="weekly-overview" id="weekly-overview">
+                        <!-- Weekly summary detail -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Detail View -->
+    <div id="diary-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div id="modal-date" class="modal-date"></div>
+            <h2 id="modal-title" class="modal-title"></h2>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <h3>📝 작성된 일기</h3>
+                    <div id="modal-diary-content" class="modal-diary-content"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Modular) -->
+
+    <script type="module">
+        // Firebase & Google AI configuration will be handled in script.js
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDoc, getDocs, query, where, orderBy, limit, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+        
+        window.firebaseCore = { initializeApp };
+        window.firebaseFirestore = { getFirestore, collection, addDoc, getDoc, getDocs, query, where, orderBy, limit, doc, setDoc, Timestamp };
+
+
+        window.GoogleGenerativeAI = GoogleGenerativeAI;
+    </script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Custom Logic -->
+    <script src="script.js" type="module"></script>
+</body>
+
+</html>
