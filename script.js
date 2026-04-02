@@ -14,7 +14,7 @@ const state = {
     inactivityTimer: null, // [NEW] 20초 무입력 감지 타이머
     recognition: null,     // [NEW] STT 엔진
     isRecording: false,    // [NEW] 녹음 상태
-    isTTSEnabled: true     // [NEW] TTS 활성화 여부
+    isTTSEnabled: false    // [NEW] 처음에는 비활성화 (마이크 클릭 시 활성화)
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -567,6 +567,8 @@ function toggleMic() {
     if (state.isRecording) {
         state.recognition.stop();
     } else {
+        // [NEW] 마이크를 누르면 음성 대화 모드로 인지하고 TTS 활성화
+        state.isTTSEnabled = true;
         if (window.speechSynthesis.speaking) window.speechSynthesis.cancel(); // 봇이 말하는 중이면 중지
         state.recognition.start();
     }
@@ -574,8 +576,9 @@ function toggleMic() {
 
 function speak(text) {
     if (!state.isTTSEnabled) return;
-    // [DIARY_READY] 같은 시스템 태그는 읽지 않도록 필터링
-    const cleanText = text.replace(/\[DIARY_READY\]/g, '').trim();
+    // [NEW] 이모지 및 부자연스러운 특수 문자 제거 (TTS 클리닝)
+    const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
+    const cleanText = text.replace(/\[DIARY_READY\]/g, '').replace(emojiRegex, '').trim();
     if (!cleanText) return;
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
