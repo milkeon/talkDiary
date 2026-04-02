@@ -599,6 +599,15 @@ function speak(text) {
     const voices = window.speechSynthesis.getVoices();
     const krVoice = voices.find(v => v.lang.includes('ko'));
     if (krVoice) utterance.voice = krVoice;
+    
+    // [NEW] 봇의 말이 끝나면 자동으로 다시 듣기 시작 (연속 대화 모드)
+    utterance.onend = () => {
+        if (state.isTTSEnabled && state.recognition && !state.isRecording) {
+            try {
+                state.recognition.start();
+            } catch (e) { console.error("Speech restart failed:", e); }
+        }
+    };
 
     window.speechSynthesis.speak(utterance);
 }
