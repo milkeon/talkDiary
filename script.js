@@ -73,7 +73,13 @@ $(document).ready(async function () {
 
     // [이벤트 리스너 등록]
     $('#send-btn').on('click', handleUserInput);
-    $('#user-input').on('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleUserInput(); } });
+    $('#user-input').on('keydown', (e) => { 
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            if (e.isComposing) return; // [FIX] 한글 IME 조합 중 엔터 입력으로 인한 잔상 및 중복 전송 방지
+            e.preventDefault(); 
+            handleUserInput(); 
+        } 
+    });
     $('.nav-links li').on('click', function () { switchView($(this).data('view')); });
 
     $(document).on('click', '.logo', function () {
