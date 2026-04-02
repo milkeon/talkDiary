@@ -15,8 +15,8 @@ const state = {
     recognition: null,     // 브라우저 기본 음성 인식(STT) 엔진 인터페이스
     isRecording: false,    // 마이크가 켜져서 사용자의 말을 듣고 있는지 여부
     isTTSEnabled: false,   // 봇의 답변을 음성(TTS)으로 읽어주는 기능 활성화 상태
-    voiceSpeed: 1.1,       // 음성 합성 속도 (0.5x ~ 2.0x, 현재 1.1x 가 기본)
-    silenceTimer: null     // [NEW] 2초 침묵 감지 타이머 (사용자 요청 반영: 정적이 2초 흐르면 전송)
+    voiceSpeed: 1.4,       // [MOD] 음성 합성 속도 기본값을 1.4x로 설정
+    silenceTimer: null     // [NEW] 2초 침묵 감지 타이머
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -78,7 +78,7 @@ $(document).ready(async function () {
 
     $(document).on('click', '.logo', function () {
         if (state.userName) {
-            logout(true);
+            switchView('chat-view'); // [MOD] 로그인 상태라면 로그아웃 대신 기록하기(홈) 뷰로 이동
         } else {
             toggleAuthView('selection');
         }
@@ -354,7 +354,10 @@ async function handleUserInput() {
         addMessage("bot", "잠시 오류가 생겼어. 다시 말해줘!");
     } finally {
         state.isProcessing = false;
-        resetInactivityTimer(); // [NEW] 응답 완료 후 다시 20초 대기
+        // [MOD] 대화가 완전히 종료되지 않았을 때만 넛지 타이머를 다시 시작
+        if (!state.chatHistory.some(m => m.role === 'model' && m.parts[0].text.includes('[DIARY_READY]'))) {
+            resetInactivityTimer();
+        }
     }
 }
 
@@ -490,10 +493,11 @@ async function addMessage(sender, text) {
     // [NEW] 봇의 답변이 완료되면 음성으로 읽어줌
     if (sender === 'bot') {
         speak(text);
-        // 만약 마무리 태그가 있다면 음성 모드 종료 (추가 질문 방지)
+        // [MOD] 마무리 태그가 있다면 음성 모드 및 넛지 타이머 완전 종료
         if (text.includes('[DIARY_READY]')) {
             state.isTTSEnabled = false; 
             if (state.recognition) state.recognition.stop();
+            if (state.inactivityTimer) clearTimeout(state.inactivityTimer); // 넛지 멈춤
         }
     }
 }
@@ -517,8 +521,9 @@ function initUI() {
 function resetInactivityTimer() {
     if (state.inactivityTimer) clearTimeout(state.inactivityTimer);
 
-    // 로그아웃 상태거나 봇이 답변 중일 때는 타이머 작동 안함
-    if (!state.userName || state.isProcessing) return;
+    // [MOD] 로그아웃 상태, 봇 답변 중, 또는 대화가 이미 완료된 상황에서는 타이머 작동 안함
+    const isFinished = state.chatHistory.some(m => m.role === 'model' && m.parts[0].text.includes('[DIARY_READY]'));
+    if (!state.userName || state.isProcessing || isFinished) return;
 
     state.inactivityTimer = setTimeout(() => {
         // 채팅 뷰가 활성화되어 있고 봇이 처리 중이 아닐 때만 넛지(Nudge) 메시지 발송
@@ -630,13 +635,19 @@ function toggleMic() {
 
 function speak(text) {
     if (!state.isTTSEnabled) return;
+
+    // [NEW] AI가 말을 시작할 때 마이크를 확실히 중단 (자문자답 방지 핵심)
+    if (state.recognition) {
+        try { state.recognition.stop(); } catch(e) {}
+    }
+
     const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
     const cleanText = text.replace(/\[DIARY_READY\]/g, '').replace(emojiRegex, '').trim();
     if (!cleanText) return;
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'ko-KR';
-    utterance.rate = state.voiceSpeed || 1.1; 
+    utterance.rate = state.voiceSpeed || 1.4; 
     utterance.pitch = 1.0;
     
     // 고성능 성우 우선순위 리스트
@@ -650,9 +661,14 @@ function speak(text) {
     if (!krVoice) krVoice = voices.find(v => v.lang.includes('ko'));
     if (krVoice) utterance.voice = krVoice;
     
+    // [MOD] 봇의 말이 끝나고 잔향이 사라질 때까지 0.5초 기다렸다가 다시 듣기 시작
     utterance.onend = () => {
         if (state.isTTSEnabled && state.recognition && !state.isRecording) {
-            try { state.recognition.start(); } catch (e) { }
+            setTimeout(() => {
+                if (state.isTTSEnabled && state.recognition && !state.isRecording) {
+                    try { state.recognition.start(); } catch (e) { }
+                }
+            }, 500);
         }
     };
     window.speechSynthesis.speak(utterance);
