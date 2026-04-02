@@ -15,7 +15,64 @@
 </head>
 
 <body>
-    <div class="app-container">
+    <div class="star-container"></div>
+    <!-- Auth Overlay: Login/Signup Screen -->
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <div class="auth-header">
+                <i class="fas fa-feather-alt auth-logo-icon"></i>
+                <h1>talkDiary</h1>
+                <p class="auth-subtitle">당신의 오늘을 기록하는 가장 다정한 방법</p>
+            </div>
+
+            <div id="user-selection-view">
+                <div class="section-header">
+                    <h3>선택</h3>
+                    <p>기존 이야기를 불러오려면 카드를 선택하세요.</p>
+                </div>
+                <div id="user-cards" class="user-cards-grid">
+                    <!-- User cards will be injected here -->
+                </div>
+                <button id="show-signup-btn" class="secondary-btn"><i class="fas fa-plus"></i> 새로운 이야기</button>
+            </div>
+
+            <div id="login-view" style="display: none;">
+                <div class="section-header">
+                    <h3 id="login-title">로그인</h3>
+                    <p>비밀번호를 입력하여 대화를 계속하세요.</p>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="login-password" placeholder="비밀번호">
+                </div>
+                <div class="auth-buttons">
+                    <button id="login-btn" class="primary-btn">대화 시작하기</button>
+                    <button id="back-to-users" class="text-btn">뒤로 가기</button>
+                </div>
+            </div>
+
+            <div id="signup-view" style="display: none;">
+                <div class="section-header">
+                    <h3>새로운 이야기 시작</h3>
+                    <p>닉네임과 비밀번호를 설정하여 시작하세요.</p>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="signup-name" placeholder="닉네임">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="password" id="signup-password" placeholder="비밀번호">
+                </div>
+                <div class="auth-buttons">
+                    <button id="signup-btn" class="primary-btn">등록 및 시작</button>
+                    <button id="cancel-signup-btn" class="text-btn">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container" style="display: none;">
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="logo">
@@ -28,11 +85,16 @@
                 <li data-view="summary-view"><i class="fas fa-chart-pie"></i> <span>주간 요약</span></li>
             </ul>
             <div class="user-profile">
-                <div class="avatar">U</div>
+                <div class="avatar" id="user-avatar-container">
+                    <img src="assets/hamster_profile.png" alt="Profile" id="user-profile-img">
+                </div>
                 <div class="info">
-                    <p class="name">User</p>
+                    <p class="name" id="user-display-name">사용자님</p>
                     <p class="status">Online</p>
                 </div>
+                <button id="logout-btn" class="logout-btn" title="로그아웃"
+                    style="background:none; border:none; color:var(--text-secondary); cursor:pointer; margin-left:auto; font-size:1.1rem;"><i
+                        class="fas fa-sign-out-alt"></i></button>
             </div>
         </nav>
 
@@ -111,7 +173,7 @@
         import { getFirestore, collection, addDoc, getDoc, getDocs, query, where, orderBy, limit, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
-        
+
         window.firebaseCore = { initializeApp };
         window.firebaseFirestore = { getFirestore, collection, addDoc, getDoc, getDocs, query, where, orderBy, limit, doc, setDoc, Timestamp };
 
