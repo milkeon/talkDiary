@@ -329,8 +329,8 @@ async function handleUserInput() {
         hideTyping();
         console.error(e);
         addMessage("bot", "잠시 오류가 생겼어. 다시 말해줘!");
-    } finally { 
-        state.isProcessing = false; 
+    } finally {
+        state.isProcessing = false;
         resetInactivityTimer(); // [NEW] 응답 완료 후 다시 20초 대기
     }
 }
@@ -478,6 +478,28 @@ function initUI() {
     state.selectedDate = krDate;
     $('#date-selector').val(state.selectedDate);
     $('#user-input').focus();
+}
+
+// [NEW] 20초 무입력 감지 타이머 로직 정의
+function resetInactivityTimer() {
+    if (state.inactivityTimer) clearTimeout(state.inactivityTimer);
+    
+    // 로그아웃 상태거나 봇이 답변 중일 때는 타이머 작동 안함
+    if (!state.userName || state.isProcessing) return;
+
+    state.inactivityTimer = setTimeout(() => {
+        // 채팅 뷰가 활성화되어 있고 봇이 처리 중이 아닐 때만 넛지(Nudge) 메시지 발송
+        if (!state.isProcessing && $('#chat-view').hasClass('active')) {
+            const nudges = [
+                "혹시 더 들려줄 이야기가 있어? 😊",
+                "궁금한 게 더 많은데, 오늘 또 어떤 일이 있었어?",
+                "잠시 생각 중이야? 천천히 말해줘도 돼. ✨",
+                "오늘 하루 중 가장 기억에 남는 순간이 뭐야?"
+            ];
+            const randomNudge = nudges[Math.floor(Math.random() * nudges.length)];
+            addMessage("bot", randomNudge);
+        }
+    }, 20000); // 20초 대기
 }
 
 function switchView(id) {
