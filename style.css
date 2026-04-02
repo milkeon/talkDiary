@@ -322,8 +322,10 @@ body {
     height: 100%;
     object-fit: cover;
     display: block;
-    mix-blend-mode: screen; /* 검은 배경 투명화 */
-    filter: brightness(1.1) contrast(1.1); /* 이미지 생동감 추가 */
+    mix-blend-mode: screen;
+    /* 검은 배경 투명화 */
+    filter: brightness(1.1) contrast(1.1);
+    /* 이미지 생동감 추가 */
 }
 
 .info .name {
@@ -410,7 +412,7 @@ header h1 {
     color: var(--text-secondary);
     cursor: pointer;
     font-size: 0.8rem;
-    padding: 6px;
+    padding: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -944,7 +946,8 @@ header h1 {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    mix-blend-mode: screen; /* 검은 배경 투명화 */
+    mix-blend-mode: screen;
+    /* 검은 배경 투명화 */
 }
 
 .user-card .name {
@@ -1059,6 +1062,7 @@ header h1 {
     gap: 8px;
     align-items: center;
 }
+
 /* ==========================================================================
    📱 Responsive Design - Media Queries
    ========================================================================== */
@@ -1068,11 +1072,11 @@ header h1 {
     .content {
         padding: 1.5rem 2rem;
     }
-    
+
     .history-grid {
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     }
-    
+
     .summary-cards {
         grid-template-columns: 1fr;
     }
@@ -1081,7 +1085,8 @@ header h1 {
 /* Mobile ( < 768px ) */
 @media screen and (max-width: 768px) {
     body {
-        overflow-y: auto; /* 모바일에서는 스크롤 허용 */
+        overflow-y: auto;
+        /* 모바일에서는 스크롤 허용 */
     }
 
     .app-container {
@@ -1108,7 +1113,8 @@ header h1 {
     }
 
     .logo {
-        display: none; /* 모바일 하단바에서는 로고 숨김 */
+        display: none;
+        /* 모바일 하단바에서는 로고 숨김 */
     }
 
     .nav-links {
@@ -1144,13 +1150,15 @@ header h1 {
     }
 
     .user-profile {
-        display: none; /* 하단바에서 프로필은 숨김 (공간 부족) */
+        display: none;
+        /* 하단바에서 프로필은 숨김 (공간 부족) */
     }
 
     /* 컨텐츠 영역 조정 */
     .content {
         padding: 1rem;
-        padding-bottom: 90px; /* 하단바 공간 */
+        padding-bottom: 90px;
+        /* 하단바 공간 */
         height: auto;
         overflow-y: visible;
     }
@@ -1179,7 +1187,8 @@ header h1 {
     }
 
     .chat-container {
-        height: calc(100vh - 200px); /* 화면 높이에 따라 유동적 조절 */
+        height: calc(100vh - 200px);
+        /* 화면 높이에 따라 유동적 조절 */
         border-radius: 18px;
     }
 
@@ -1199,7 +1208,8 @@ header h1 {
     }
 
     /* 그리드 시스템 한 줄로 통일 */
-    .history-grid, .summary-cards {
+    .history-grid,
+    .summary-cards {
         grid-template-columns: 1fr;
     }
 
@@ -1231,19 +1241,18 @@ header h1 {
     .nav-links li span {
         font-size: 0.7rem;
     }
-    
+
     .header-controls {
         flex-direction: row;
     }
-    
+
     .user-cards-grid {
         grid-template-columns: 1fr;
     }
 }
-
-/* 🎤 Voice Conversation (STT/TTS) Styles */
+/* 🎤 음성 대화 기능(STT/TTS) 관련 스타일 (RESTORED) */
 .mic-btn {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.05); 
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-secondary);
     font-size: 1rem;

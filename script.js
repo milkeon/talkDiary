@@ -9,14 +9,14 @@ const state = {
     chatHistory: [],
     authMode: 'selection',
     selectedUserForLogin: null,
-    isDiarySaving: false,
-    saveTimer: null,
-    inactivityTimer: null, // [NEW] 20초 무입력 감지 타이머
-    recognition: null,     // STT 엔진 인스턴스
-    isRecording: false,    // 현재 녹음 중인지 여부
-    isTTSEnabled: false,   // TTS(말하기) 활성화 상태
-    voiceSpeed: 1.1,       // 음성 속도 (기본 1.1x)
-    silenceTimer: null     // [NEW] 3초 침묵 감지 타이머
+    isDiarySaving: false,  // 현재 일기가 Firestore에 저장 중인지 여부
+    saveTimer: null,       // 자동 저장을 위한 타이머 인스턴스
+    inactivityTimer: null, // [NEW] 20초간 입력이 없을 때 봇이 말을 걸기 위한 타이머
+    recognition: null,     // 브라우저 기본 음성 인식(STT) 엔진 인터페이스
+    isRecording: false,    // 마이크가 켜져서 사용자의 말을 듣고 있는지 여부
+    isTTSEnabled: false,   // 봇의 답변을 음성(TTS)으로 읽어주는 기능 활성화 상태
+    voiceSpeed: 1.1,       // 음성 합성 속도 (0.5x ~ 2.0x, 현재 1.1x 가 기본)
+    silenceTimer: null     // [NEW] 2초 침묵 감지 타이머 (사용자 요청 반영: 정적이 2초 흐르면 전송)
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -516,7 +516,7 @@ function initUI() {
 // [NEW] 20초 무입력 감지 타이머 로직 정의
 function resetInactivityTimer() {
     if (state.inactivityTimer) clearTimeout(state.inactivityTimer);
-    
+
     // 로그아웃 상태거나 봇이 답변 중일 때는 타이머 작동 안함
     if (!state.userName || state.isProcessing) return;
 
@@ -549,20 +549,21 @@ function switchView(id) {
     if (id === 'summary-view') loadSummaries();
 }
 
-// [NEW] 🎤 음성 인식 및 합성 로직
+
+// [NEW] 🎤 음성 인식 및 합성 로직 (RESTORED)
 function initSpeech() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         state.recognition = new SpeechRecognition();
         state.recognition.lang = 'ko-KR';
-        state.recognition.interimResults = true; // [MOD] 실시간 결과 수집 활성화
-        state.recognition.continuous = true;    // [MOD] 끊김 없는 인식을 위해 연속 모드 유지
+        state.recognition.interimResults = true; // 실시간 결과 수집 활성화
+        state.recognition.continuous = true;    // 끊김 없는 인식을 위해 연속 모드 유지
         state.recognition.maxAlternatives = 1;
 
         state.recognition.onstart = () => {
             state.isRecording = true;
             $('#mic-btn').addClass('active');
-            $('#user-input').attr('placeholder', '듣고 있어요... 3초간 멈추면 전송됩니다.');
+            $('#user-input').attr('placeholder', '듣고 있어요... 2초간 멈추면 전송됩니다.');
         };
 
         state.recognition.onend = () => {
@@ -577,24 +578,26 @@ function initSpeech() {
             }
         };
 
+        // 음성 인식 실시간 결과 처리
         state.recognition.onresult = (event) => {
             let finalTranscript = '';
+            // 현재까지 인식된 모든 중간/최종 텍스트를 하나로 합침
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
-                else finalTranscript += event.results[i][0].transcript;
+                finalTranscript += event.results[i][0].transcript;
             }
             
             if (finalTranscript.trim()) {
-                $('#user-input').val(finalTranscript);
+                $('#user-input').val(finalTranscript); // 입력창에 실시간으로 텍스트 업데이트
                 
-                // [NEW] 3초 침묵 감지 로직
+                // [2초 침묵 전송 로직]
+                // 결과가 들어올 때마다 기존 타이머를 취소하고 새로 시작
                 if (state.silenceTimer) clearTimeout(state.silenceTimer);
                 state.silenceTimer = setTimeout(() => {
                     if (finalTranscript.trim()) {
-                        handleUserInput(); // 3초간 말이 없으면 최종 전송
-                        if (state.recognition) state.recognition.stop(); // 전송 후 잠시 정지 (답변 대기)
+                        handleUserInput(); // 2초 동안 정적이 흐르면 자동으로 메시지 전송
+                        if (state.recognition) state.recognition.stop(); // 전송 중엔 중복 입력을 막기 위해 중단
                     }
-                }, 3000); // 사용자 요청대로 3000ms(3초) 대기
+                }, 2000); // 2000ms(2초) 인내심 유지
             }
         };
 
@@ -604,7 +607,7 @@ function initSpeech() {
             $('#mic-btn').removeClass('active');
         };
     } else {
-        $('#mic-btn').hide(); // 브라우저가 지원하지 않으면 버튼 숨김
+        $('#mic-btn').hide(); 
     }
 }
 
@@ -613,58 +616,45 @@ function toggleMic() {
     if (state.isRecording) {
         state.recognition.stop();
     } else {
-        // [NEW] 마이크를 누르면 음성 대화 모드로 인지하고 TTS 활성화
         const wasDisabled = !state.isTTSEnabled;
         state.isTTSEnabled = true;
-        
         if (window.speechSynthesis.speaking) window.speechSynthesis.cancel(); 
         
-        // [NEW] 처음 활성화될 때 마지막 봇 메시지가 있다면 읽어줌
         if (wasDisabled) {
             const lastBotMsg = $('.message.bot').last().text();
             if (lastBotMsg) speak(lastBotMsg);
         }
-
         state.recognition.start();
     }
 }
 
 function speak(text) {
     if (!state.isTTSEnabled) return;
-    // [NEW] 이모지 및 부자연스러운 특수 문자 제거 (TTS 클리닝)
     const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
     const cleanText = text.replace(/\[DIARY_READY\]/g, '').replace(emojiRegex, '').trim();
     if (!cleanText) return;
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'ko-KR';
-    utterance.rate = state.voiceSpeed || 1.1; // [NEW] 실시간 설정된 속도 반영
+    utterance.rate = state.voiceSpeed || 1.1; 
     utterance.pitch = 1.0;
     
-    // 한국어 목소리 설정 (고성능 성우 우선순위 적용)
+    // 고성능 성우 우선순위 리스트
     const voices = window.speechSynthesis.getVoices();
     const priorityVoices = ['Google 한국어', 'Siri', 'Apple Yuna', 'Google KR'];
     let krVoice = null;
-
-    // 우선순위 리스트에서 목소리 찾기
     for (const name of priorityVoices) {
         krVoice = voices.find(v => v.name.includes(name) && v.lang.includes('ko'));
         if (krVoice) break;
     }
-    // 못 찾으면 일반 한국어 목소리 선택
     if (!krVoice) krVoice = voices.find(v => v.lang.includes('ko'));
-    
     if (krVoice) utterance.voice = krVoice;
     
-    // [NEW] 봇의 말이 끝나면 자동으로 다시 듣기 시작 (연속 대화 모드)
     utterance.onend = () => {
         if (state.isTTSEnabled && state.recognition && !state.isRecording) {
-            try {
-                state.recognition.start();
-            } catch (e) { console.error("Speech restart failed:", e); }
+            try { state.recognition.start(); } catch (e) { }
         }
     };
-
     window.speechSynthesis.speak(utterance);
 }
 
