@@ -109,9 +109,9 @@
                 </button>
                 <div class="header-controls">
                     <div class="voice-speed-control" title="음성 속도 조절">
-                        <i class="fas fa-running" style="font-size: 0.9rem; color: var(--text-secondary);"></i>
-                        <input type="range" id="voice-speed" min="0.5" max="2.0" step="0.1" value="1.1">
-                        <span id="speed-val" style="font-size: 0.8rem; min-width: 35px; color: var(--accent-light); font-weight: 600;">1.1x</span>
+                        <button id="speed-down" class="speed-btn" title="속도 감소"><i class="fas fa-chevron-left"></i></button>
+                        <span id="speed-val">1.1x</span>
+                        <button id="speed-up" class="speed-btn" title="속도 증가"><i class="fas fa-chevron-right"></i></button>
                     </div>
                     <input type="date" id="date-selector" class="date-input">
                     <button id="logout-btn" class="logout-btn" title="로그아웃"

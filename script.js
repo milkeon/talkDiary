@@ -106,11 +106,19 @@ $(document).ready(async function () {
 
     $('#mic-btn').on('click', toggleMic); // [NEW] 마이크 버튼 클릭 리스너
     
-    // [NEW] 음성 속도 조절 리스너
-    $('#voice-speed').on('input', function() {
-        const speed = $(this).val();
-        state.voiceSpeed = parseFloat(speed);
-        $('#speed-val').text(speed + 'x');
+    // [NEW] 음성 속도 화살표 조절 리스너 (0.5x ~ 2.0x)
+    $('#speed-down').on('click', function() {
+        if (state.voiceSpeed > 0.5) {
+            state.voiceSpeed = parseFloat((state.voiceSpeed - 0.1).toFixed(1));
+            $('#speed-val').text(state.voiceSpeed + 'x');
+        }
+    });
+
+    $('#speed-up').on('click', function() {
+        if (state.voiceSpeed < 2.0) {
+            state.voiceSpeed = parseFloat((state.voiceSpeed + 0.1).toFixed(1));
+            $('#speed-val').text(state.voiceSpeed + 'x');
+        }
     });
 
     initUI();
@@ -479,7 +487,14 @@ async function addMessage(sender, text) {
     $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight); $('#user-input').focus();
     
     // [NEW] 봇의 답변이 완료되면 음성으로 읽어줌
-    if (sender === 'bot') speak(text);
+    if (sender === 'bot') {
+        speak(text);
+        // 만약 마무리 태그가 있다면 음성 모드 종료 (추가 질문 방지)
+        if (text.includes('[DIARY_READY]')) {
+            state.isTTSEnabled = false; 
+            if (state.recognition) state.recognition.stop();
+        }
+    }
 }
 
 function showTyping() {
@@ -540,6 +555,7 @@ function initSpeech() {
         state.recognition = new SpeechRecognition();
         state.recognition.lang = 'ko-KR';
         state.recognition.interimResults = false;
+        state.recognition.continuous = true; // [NEW] 중간에 쉬어도 계속 듣기
         state.recognition.maxAlternatives = 1;
 
         state.recognition.onstart = () => {
@@ -603,9 +619,19 @@ function speak(text) {
     utterance.rate = state.voiceSpeed || 1.1; // [NEW] 실시간 설정된 속도 반영
     utterance.pitch = 1.0;
     
-    // 한국어 목소리 설정 (시스템 지원에 따라 다름)
+    // 한국어 목소리 설정 (고성능 성우 우선순위 적용)
     const voices = window.speechSynthesis.getVoices();
-    const krVoice = voices.find(v => v.lang.includes('ko'));
+    const priorityVoices = ['Google 한국어', 'Siri', 'Apple Yuna', 'Google KR'];
+    let krVoice = null;
+
+    // 우선순위 리스트에서 목소리 찾기
+    for (const name of priorityVoices) {
+        krVoice = voices.find(v => v.name.includes(name) && v.lang.includes('ko'));
+        if (krVoice) break;
+    }
+    // 못 찾으면 일반 한국어 목소리 선택
+    if (!krVoice) krVoice = voices.find(v => v.lang.includes('ko'));
+    
     if (krVoice) utterance.voice = krVoice;
     
     // [NEW] 봇의 말이 끝나면 자동으로 다시 듣기 시작 (연속 대화 모드)
