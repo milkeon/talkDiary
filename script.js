@@ -11,7 +11,10 @@ const state = {
     selectedUserForLogin: null,
     isDiarySaving: false,
     saveTimer: null,
-    inactivityTimer: null // [NEW] 20초 무입력 감지 타이머
+    inactivityTimer: null, // [NEW] 20초 무입력 감지 타이머
+    recognition: null,     // [NEW] STT 엔진
+    isRecording: false,    // [NEW] 녹음 상태
+    isTTSEnabled: true     // [NEW] TTS 활성화 여부
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -100,7 +103,10 @@ $(document).ready(async function () {
         startChat();
     });
 
+    $('#mic-btn').on('click', toggleMic); // [NEW] 마이크 버튼 클릭 리스너
+
     initUI();
+    initSpeech(); // [NEW] 음성 엔진 초기화
     initStars(); // [RESTORED] 배경 별빛 초기화
     initStardust(); // 고성능 캔버스 엔진 초기화
     initStarTrail(); // 마우스 트레일 초기화
@@ -463,6 +469,9 @@ async function addMessage(sender, text) {
         }
     } else { $msg.html(formattedText); }
     $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight); $('#user-input').focus();
+    
+    // [NEW] 봇의 답변이 완료되면 음성으로 읽어줌
+    if (sender === 'bot') speak(text);
 }
 
 function showTyping() {
@@ -505,8 +514,81 @@ function resetInactivityTimer() {
 function switchView(id) {
     $('.view-section').removeClass('active'); $(`#${id}`).addClass('active');
     $('.nav-links li').removeClass('active'); $(`.nav-links li[data-view="${id}"]`).addClass('active');
+    const titles = { 'chat-view': '기록하기', 'history-view': '지난 기록', 'summary-view': '주간 요약' };
+    $('#view-title').text(titles[id] || '기록하기');
+    
+    // [NEW] 기록하기 뷰에서만 마이크 버튼 표시
+    if (id === 'chat-view') $('#mic-btn').show();
+    else $('#mic-btn').hide();
+
     if (id === 'history-view') loadHistory();
     if (id === 'summary-view') loadSummaries();
+}
+
+// [NEW] 🎤 음성 인식 및 합성 로직
+function initSpeech() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        state.recognition = new SpeechRecognition();
+        state.recognition.lang = 'ko-KR';
+        state.recognition.interimResults = false;
+        state.recognition.maxAlternatives = 1;
+
+        state.recognition.onstart = () => {
+            state.isRecording = true;
+            $('#mic-btn').addClass('active');
+            $('#user-input').attr('placeholder', '듣고 있어요... 말씀해 주세요.');
+        };
+
+        state.recognition.onend = () => {
+            state.isRecording = false;
+            $('#mic-btn').removeClass('active');
+            $('#user-input').attr('placeholder', '메시지를 입력하세요...');
+        };
+
+        state.recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            $('#user-input').val(transcript);
+            handleUserInput(); // 인식 결과가 나오면 바로 메시지 전송
+        };
+
+        state.recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            state.isRecording = false;
+            $('#mic-btn').removeClass('active');
+        };
+    } else {
+        $('#mic-btn').hide(); // 브라우저가 지원하지 않으면 버튼 숨김
+    }
+}
+
+function toggleMic() {
+    if (!state.recognition) return;
+    if (state.isRecording) {
+        state.recognition.stop();
+    } else {
+        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel(); // 봇이 말하는 중이면 중지
+        state.recognition.start();
+    }
+}
+
+function speak(text) {
+    if (!state.isTTSEnabled) return;
+    // [DIARY_READY] 같은 시스템 태그는 읽지 않도록 필터링
+    const cleanText = text.replace(/\[DIARY_READY\]/g, '').trim();
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'ko-KR';
+    utterance.rate = 1.1; // 약간 빠르게 설정하여 자연스러운 대화 유도
+    utterance.pitch = 1.0;
+    
+    // 한국어 목소리 설정 (시스템 지원에 따라 다름)
+    const voices = window.speechSynthesis.getVoices();
+    const krVoice = voices.find(v => v.lang.includes('ko'));
+    if (krVoice) utterance.voice = krVoice;
+
+    window.speechSynthesis.speak(utterance);
 }
 
 async function loadHistory() {
