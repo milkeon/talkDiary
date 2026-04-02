@@ -12,10 +12,11 @@ const state = {
     isDiarySaving: false,
     saveTimer: null,
     inactivityTimer: null, // [NEW] 20초 무입력 감지 타이머
-    recognition: null,     // [NEW] STT 엔진
-    isRecording: false,    // [NEW] 녹음 상태
-    isTTSEnabled: false,   // [NEW] 처음에는 비활성화 (마이크 클릭 시 활성화)
-    voiceSpeed: 1.1        // [NEW] 음성 속도 초기값
+    recognition: null,     // STT 엔진 인스턴스
+    isRecording: false,    // 현재 녹음 중인지 여부
+    isTTSEnabled: false,   // TTS(말하기) 활성화 상태
+    voiceSpeed: 1.1,       // 음성 속도 (기본 1.1x)
+    silenceTimer: null     // [NEW] 3초 침묵 감지 타이머
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -554,26 +555,47 @@ function initSpeech() {
     if (SpeechRecognition) {
         state.recognition = new SpeechRecognition();
         state.recognition.lang = 'ko-KR';
-        state.recognition.interimResults = false;
-        state.recognition.continuous = true; // [NEW] 중간에 쉬어도 계속 듣기
+        state.recognition.interimResults = true; // [MOD] 실시간 결과 수집 활성화
+        state.recognition.continuous = true;    // [MOD] 끊김 없는 인식을 위해 연속 모드 유지
         state.recognition.maxAlternatives = 1;
 
         state.recognition.onstart = () => {
             state.isRecording = true;
             $('#mic-btn').addClass('active');
-            $('#user-input').attr('placeholder', '듣고 있어요... 말씀해 주세요.');
+            $('#user-input').attr('placeholder', '듣고 있어요... 3초간 멈추면 전송됩니다.');
         };
 
         state.recognition.onend = () => {
             state.isRecording = false;
             $('#mic-btn').removeClass('active');
             $('#user-input').attr('placeholder', '메시지를 입력하세요...');
+            // 갑자기 종료된 경우 재시작 로직 (대화 모드일 때만)
+            if (state.isTTSEnabled && !window.speechSynthesis.speaking) {
+                setTimeout(() => {
+                    if (state.isTTSEnabled && !state.isRecording) try { state.recognition.start(); } catch(e){}
+                }, 300);
+            }
         };
 
         state.recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            $('#user-input').val(transcript);
-            handleUserInput(); // 인식 결과가 나오면 바로 메시지 전송
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+                else finalTranscript += event.results[i][0].transcript;
+            }
+            
+            if (finalTranscript.trim()) {
+                $('#user-input').val(finalTranscript);
+                
+                // [NEW] 3초 침묵 감지 로직
+                if (state.silenceTimer) clearTimeout(state.silenceTimer);
+                state.silenceTimer = setTimeout(() => {
+                    if (finalTranscript.trim()) {
+                        handleUserInput(); // 3초간 말이 없으면 최종 전송
+                        if (state.recognition) state.recognition.stop(); // 전송 후 잠시 정지 (답변 대기)
+                    }
+                }, 3000); // 사용자 요청대로 3000ms(3초) 대기
+            }
         };
 
         state.recognition.onerror = (event) => {
