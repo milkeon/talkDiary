@@ -14,7 +14,8 @@ const state = {
     inactivityTimer: null, // [NEW] 20초 무입력 감지 타이머
     recognition: null,     // [NEW] STT 엔진
     isRecording: false,    // [NEW] 녹음 상태
-    isTTSEnabled: false    // [NEW] 처음에는 비활성화 (마이크 클릭 시 활성화)
+    isTTSEnabled: false,   // [NEW] 처음에는 비활성화 (마이크 클릭 시 활성화)
+    voiceSpeed: 1.1        // [NEW] 음성 속도 초기값
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -40,7 +41,7 @@ ${summaryContext}
 1. **${toneStyle}**
 2. **필수 확인**: 오늘의 날씨(풍경), 오늘 먹은 특별한 식사, 오늘 하루를 지배한 감정의 결(기분).
 3. **자연스러운 전개**: 질문을 한꺼번에 던지지 마세요. 답변에 정성스럽게 리액션한 후, **문장의 맨 마지막은 반드시 질문(?)으로 끝맺으세요.** 질문 뒤에 다른 사족을 절대 붙이지 마세요.
-4. **마침표**: 대화가 어느 정도 진행되었거나 사용자가 종료 의사를 보이면 따뜻한 인사와 함께 답변 끝에 반드시 "[DIARY_READY]"를 붙이세요. **이때는 절대로 질문(? 문항)을 던지지 말고 담백하게 마무리하세요.**
+4. **마무리 및 저장**: 대화가 무르익었거나 사용자가 종료 의사를 보이면 따뜻한 인사와 함께 답변 끝에 반드시 "[DIARY_READY]"를 붙이세요. **중요: [DIARY_READY]가 포함된 답변에서는 절대로 질문(? 문항)을 던지지 말고, 일상적인 마무리 인사로만 끝내세요.** 이후엔 추가 질문 없이 대화를 즉시 종료해야 합니다.
 5. **관계의 심화**: 사용자(${userName})의 이름을 다정하게 부르며, 대화가 이어질수록 더 깊은 유대감을 형성하세요.
 
 6. **사실 기반**: 사용자가 말하지 않은 사실을 절대 지어내지 마세요.
@@ -104,6 +105,13 @@ $(document).ready(async function () {
     });
 
     $('#mic-btn').on('click', toggleMic); // [NEW] 마이크 버튼 클릭 리스너
+    
+    // [NEW] 음성 속도 조절 리스너
+    $('#voice-speed').on('input', function() {
+        const speed = $(this).val();
+        state.voiceSpeed = parseFloat(speed);
+        $('#speed-val').text(speed + 'x');
+    });
 
     initUI();
     initSpeech(); // [NEW] 음성 엔진 초기화
@@ -592,7 +600,7 @@ function speak(text) {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'ko-KR';
-    utterance.rate = 1.1; // 약간 빠르게 설정하여 자연스러운 대화 유도
+    utterance.rate = state.voiceSpeed || 1.1; // [NEW] 실시간 설정된 속도 반영
     utterance.pitch = 1.0;
     
     // 한국어 목소리 설정 (시스템 지원에 따라 다름)

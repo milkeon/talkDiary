@@ -387,6 +387,38 @@ header h1 {
     border-color: var(--accent-color);
     box-shadow: 0 0 10px rgba(124, 77, 255, 0.2);
 }
+.voice-speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    margin-right: 8px;
+}
+
+#voice-speed {
+    width: 60px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none; /* [FIX] 표준 속성 추가 */
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+#voice-speed::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none; /* [FIX] 표준 속성 추가 */
+    width: 12px;
+    height: 12px;
+    background: var(--accent-light);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 5px var(--accent-light);
+}
 
 
 /* View Sections */
