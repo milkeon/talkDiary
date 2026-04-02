@@ -8,7 +8,9 @@ const state = {
     isProcessing: false,
     chatHistory: [],
     authMode: 'selection', // 'selection', 'login', 'signup'
-    selectedUserForLogin: null
+    selectedUserForLogin: null,
+    isDiarySaving: false, // [NEW] 중복 저장 방지 플래그
+    saveTimer: null       // [NEW] 자동 저장 타이머
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -217,6 +219,11 @@ function completeLogin(name, tone) {
     $('#user-display-name').text(name);
     $('#auth-overlay').fadeOut(400);
     $('.app-container').fadeIn(400);
+
+    // [FIX] 로그인 시 별빛 효과 기본 OFF (대화 집중)
+    isEffectEnabled = false;
+    $('#effect-toggle').removeClass('active');
+    
     startChat();
 }
 
@@ -227,6 +234,11 @@ function logout(skipConfirm = false) {
     $('#chat-messages').empty();
     $('.app-container').hide();
     $('#auth-overlay').show();
+
+    // [FIX] 로그아웃 시 별빛 효과 기본 ON (랜딩 페이지 화려함 유지)
+    isEffectEnabled = true;
+    $('#effect-toggle').addClass('active');
+
     toggleAuthView('selection');
     loadUsers();
 }
@@ -292,7 +304,7 @@ async function handleUserInput() {
     state.isProcessing = true;
     showTyping();
 
-    const stopWords = ["그만", "끝", "다음에", "나중에", "졸려", "자야지", "피곤해", "안녕"];
+    const stopWords = ["그만", "끝", "다음에", "나중에", "졸려", "자야지", "피곤해", "잘 가", "바이", "수고했어"];
     const shouldStop = stopWords.some(w => input.includes(w));
     let finalInput = input;
     if (shouldStop) finalInput += " (사용자가 대화를 마칠 준비가 되었습니다. 더 이상 질문하지 말고 다정하게 작별 인사를 건넨 뒤 [DIARY_READY]를 붙여주세요.)";
@@ -325,14 +337,17 @@ async function generateAIDiary() {
         const diaryModel = ai.getGenerativeModel({ model: "gemma-3-27b-it" });
         const prompt = `당신은 오늘 하루를 보낸 사용자 본인입니다. 대화 속에 등장하는 AI가 작성을 대신해주는 것이 아니라, **당신이 대화 상대(AI)와 이야기를 나눈 뒤 직접 쓰는 개인적인 일기**를 작성하세요.
         
-작성 원칙:
-1. **완벽한 빙의**: 당신은 대화 속의 사용자가 되어야 합니다... (중략)
-4. **호칭 주의**: 오직 '나'를 주어로 사용하여 성숙한 에세이 스타일로 완성하세요.`;
+작성 원칙 (MUST):
+1. **정직성**: 대화에서 언급되지 않은 사실이나 감정을 절대 지어내지 마세요. "안녕"만 했다면 일기도 짧게 인사만 하세요.
+2. **분량 비례**: 일기 길이는 실제 대화의 양에 엄격히 비례해야 합니다. 짧은 대화에 긴 고찰을 적지 마세요.
+3. **호칭**: 오직 '나'를 주어로 사용하며, 대화 내용에만 충실하게 성숙한 스타일로 작성하세요.`;
 
         const result = await diaryModel.generateContent(prompt + "\n\n[대화 내용]\n" + JSON.stringify(state.chatHistory));
         const finalDiary = result.response.text();
         hideTyping();
-        addMessage("bot", `### ✨ 오늘의 일기 기록<br>\n\n${finalDiary.replace(/\n/g, '<br>')}`);
+        await addMessage("bot", `### ✨ 오늘의 일기 기록<br>\n\n${finalDiary.replace(/\n/g, '<br>')}`);
+        
+        // [FIX] 대기 없이 즉시 자동 저장 호출
         await saveToFirebase(finalDiary, state.chatHistory);
     } catch (e) {
         hideTyping();
@@ -342,26 +357,50 @@ async function generateAIDiary() {
 }
 
 async function saveToFirebase(content, history) {
-    if (!db || !state.userName) return;
-    const { collection, addDoc, Timestamp } = window.firebaseFirestore;
-    const logs = history.filter((h, i) => i > 0).map(h => ({
-        role: h.role === 'user' ? '사용자' : 'AI',
-        message: h.parts[0].text.replace("[DIARY_READY]", "").trim()
-    }));
+    if (!db || !state.userName || state.isDiarySaving) return;
+    state.isDiarySaving = true;
+
+    const { doc, setDoc, Timestamp, collection, query, where, getDocs, deleteDoc } = window.firebaseFirestore;
+    
+    // [FIX] 고유 문서 ID 생성 (사용자_날짜)
+    const docId = `${state.userName}_${state.selectedDate}`;
+    const diaryDate = new Date(state.selectedDate);
+
     try {
-        const diaryDate = new Date(state.selectedDate);
-        await addDoc(collection(db, "diaries"), {
+        // [CLEANUP] 해당 날짜의 기존 모든 일기 삭제 (중복 소탕)
+        const q = query(
+            collection(db, "diaries"),
+            where("userName", "==", state.userName),
+            where("date", "==", Timestamp.fromDate(diaryDate))
+        );
+        const querySnapshot = await getDocs(q);
+        const deletePromises = querySnapshot.docs.map(d => deleteDoc(doc(db, "diaries", d.id)));
+        await Promise.all(deletePromises);
+
+        // [SAVE] 최종본 저장
+        const logs = history.filter((h, i) => i > 0).map(h => ({
+            role: h.role === 'user' ? '사용자' : 'AI',
+            message: h.parts[0].text.replace("[DIARY_READY]", "").trim()
+        }));
+
+        const diaryData = {
             userName: state.userName,
             date: Timestamp.fromDate(diaryDate),
             content: content,
             chatLogs: logs,
             timestamp: Date.now()
-        });
+        };
+
+        await setDoc(doc(db, "diaries", docId), diaryData);
+
         addMessage("bot", "✅ 오늘 하루도 고생 많았어. 기록이 안전하게 저장되었어! 👍");
         await checkAndGenerate3DaySummary();
     } catch (e) {
         console.error("Save failed:", e);
         addMessage("bot", "❌ 기록 저장 중 오류 발생.");
+    } finally {
+        state.isDiarySaving = false;
+        state.saveTimer = null;
     }
 }
 
