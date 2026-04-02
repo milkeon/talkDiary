@@ -568,8 +568,17 @@ function toggleMic() {
         state.recognition.stop();
     } else {
         // [NEW] 마이크를 누르면 음성 대화 모드로 인지하고 TTS 활성화
+        const wasDisabled = !state.isTTSEnabled;
         state.isTTSEnabled = true;
-        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel(); // 봇이 말하는 중이면 중지
+        
+        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel(); 
+        
+        // [NEW] 처음 활성화될 때 마지막 봇 메시지가 있다면 읽어줌
+        if (wasDisabled) {
+            const lastBotMsg = $('.message.bot').last().text();
+            if (lastBotMsg) speak(lastBotMsg);
+        }
+
         state.recognition.start();
     }
 }
