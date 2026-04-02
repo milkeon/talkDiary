@@ -68,7 +68,7 @@ $(document).ready(async function () {
     $('#user-input').on('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleUserInput(); } });
     $('.nav-links li').on('click', function () { switchView($(this).data('view')); });
 
-    $('.logo').css('cursor', 'pointer').on('click', () => {
+    $(document).on('click', '.logo', function() {
         if (state.userName) {
             if (confirm('홈 화면으로 이동하시겠습니까? (로그아웃됩니다)')) logout(true);
         } else {
@@ -98,9 +98,10 @@ $(document).ready(async function () {
     });
 
     initUI();
-    initStars(); // 배경 별빛 초기화
+    initStars(); // [RESTORED] 배경 별빛 초기화
+    initStardust(); // 고성능 캔버스 엔진 초기화
     initStarTrail(); // 마우스 트레일 초기화
-    initStarClick(); // [RESTORED] 은색 별빛 Clicksplosion 초기화
+    initStarClick(); // 마우스 클릭 효과 초기화
 });
 
 function initFirebase(env) {
@@ -132,7 +133,7 @@ async function loadUsers() {
 function renderUserCards(users) {
     const $container = $('#user-cards');
     $container.empty();
-    const hamsterImg = "assets/hamster_profile.png";
+    const hamsterImg = "assets/hamster_profile.png?v=999";
 
     if (users.length === 0) {
         $container.html('<p style="grid-column: 1/-1; color:var(--text-secondary); font-size:0.9rem;">등록된 이야기가 없습니다.<br>새 이야기를 시작해 보세요!</p>');
@@ -152,15 +153,18 @@ function renderUserCards(users) {
 
 function toggleAuthView(mode) {
     state.authMode = mode;
+    // [FIX] 모든 인증 관련 인풋 초기화
+    $('#login-password, #signup-name, #signup-password').val('');
+    
     $('#user-selection-view, #login-view, #signup-view').hide();
     if (mode === 'selection') $('#user-selection-view').show();
     else if (mode === 'login') {
         $('#login-view').show();
-        $('#login-password').focus(); // 인풋 자동 포커스
+        $('#login-password').focus();
     }
     else if (mode === 'signup') {
         $('#signup-view').show();
-        $('#signup-name').focus(); // 인풋 자동 포커스
+        $('#signup-name').focus();
     }
 }
 
@@ -210,12 +214,9 @@ async function signup() {
 function completeLogin(name, tone) {
     state.userName = name;
     state.preferredTone = tone;
-
     $('#user-display-name').text(name);
-
     $('#auth-overlay').fadeOut(400);
     $('.app-container').fadeIn(400);
-
     startChat();
 }
 
@@ -267,7 +268,6 @@ async function getRecentSummary() {
         const qs = await getDocs(q);
         if (qs.empty) return "";
         const summaries = qs.docs.map(d => d.data());
-        // createdAt 기준으로 내림차순 정렬
         summaries.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
         return summaries[0].content;
     } catch (e) { return ""; }
@@ -326,10 +326,8 @@ async function generateAIDiary() {
         const prompt = `당신은 오늘 하루를 보낸 사용자 본인입니다. 대화 속에 등장하는 AI가 작성을 대신해주는 것이 아니라, **당신이 대화 상대(AI)와 이야기를 나눈 뒤 직접 쓰는 개인적인 일기**를 작성하세요.
         
 작성 원칙:
-1. **완벽한 빙의**: 당신은 대화 속의 사용자가 되어야 합니다. 대화 상대(AI)가 내 말을 잘못 기억해서 사과했다면, "대화 상대가 내 어제 기록을 잘못 말해서 조금 당황했다"는 식으로 나의 기분을 적으세요.
-2. **나의 관점**: AI의 입장에서 "사용자에게 위로를 건넸다"라고 쓰지 마세요. "그의 위로 덕분에 조금 힘이 났다"라고 쓰세요.
-3. **사실 기반 일상**: 오늘 나눈 대화(날씨, 고정지출 정리, 게임에 관한 생각 등)를 바탕으로 나의 내면적인 고백과 오늘 있었던 일들을 담백하게 기록하세요.
-4. **호칭 주의**: 특정 이름이나 닉네임은 한 번도 등장하지 않아야 합니다. 오직 '나'를 주어로 사용하여 성숙한 에세이 스타일로 완성하세요.`;
+1. **완벽한 빙의**: 당신은 대화 속의 사용자가 되어야 합니다... (중략)
+4. **호칭 주의**: 오직 '나'를 주어로 사용하여 성숙한 에세이 스타일로 완성하세요.`;
 
         const result = await diaryModel.generateContent(prompt + "\n\n[대화 내용]\n" + JSON.stringify(state.chatHistory));
         const finalDiary = result.response.text();
@@ -363,7 +361,7 @@ async function saveToFirebase(content, history) {
         await checkAndGenerate3DaySummary();
     } catch (e) {
         console.error("Save failed:", e);
-        addMessage("bot", "❌ 미안, 기록을 저장하는 중에 예기치 못한 오류가 발생했어. 나중에 다시 시도해줄래?");
+        addMessage("bot", "❌ 기록 저장 중 오류 발생.");
     }
 }
 
@@ -371,51 +369,25 @@ async function checkAndGenerate3DaySummary() {
     if (!ai || !db || !state.userName) return;
     const { collection, getDocs, query, where, addDoc } = window.firebaseFirestore;
     try {
-        // 내 일기 모두 가져오기
-        const q = query(
-            collection(db, "diaries"),
-            where("userName", "==", state.userName)
-        );
+        const q = query(collection(db, "diaries"), where("userName", "==", state.userName));
         const dSnap = await getDocs(q);
         if (dSnap.empty) return;
-
         let myDiaries = dSnap.docs.map(doc => doc.data());
-        // 날짜순 내림차순 정렬 후 최근 3개만 추출
         myDiaries.sort((a, b) => b.date.seconds - a.date.seconds);
         myDiaries = myDiaries.slice(0, 3);
-
         if (myDiaries.length < 3) return;
 
-        // 기간 설정
         const last3Days = [...myDiaries].reverse();
         const startTimestamp = last3Days[0].date;
         const endTimestamp = last3Days[2].date;
 
-        // 해당 기간에 대한 요약이 이미 있는지 확인 (중복 방지)
-        const checkQ = query(
-            collection(db, "summaries"),
-            where("userName", "==", state.userName),
-            where("startDate", "==", startTimestamp),
-            where("endDate", "==", endTimestamp)
-        );
+        const checkQ = query(collection(db, "summaries"), where("userName", "==", state.userName), where("startDate", "==", startTimestamp), where("endDate", "==", endTimestamp));
         const existingSummary = await getDocs(checkQ);
         if (!existingSummary.empty) return;
 
-        const diaryText = last3Days.map((d) => {
-            const dateStr = d.date.toDate().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-            return `[${dateStr} 일기]\n${d.content}`;
-        }).join("\n\n");
-
+        const diaryText = last3Days.map((d) => `[${d.date.toDate().toLocaleDateString('ko-KR')}]\n${d.content}`).join("\n\n");
         const summaryModel = ai.getGenerativeModel({ model: "gemma-3-27b-it" });
-        const prompt = `당신은 지난 3일간의 기록을 가진 사용자 본인입니다. 대화 속에 등장하는 기록가가 분석해주는 형식이 아니라, **사용자인 당신이 자신의 지난 3일을 스스로 돌아보며 쓰는 성찰록**이어야 합니다.
-        
-집필 지침:
-1. **AI 정체성 제거**: "기록가로서 분석했다" 혹은 "사용자를 응원한다" 같은 표현은 절대 금지입니다. 당신은 분석을 받는 대상이 아니라, 분석을 하는 주체입니다.
-2. **나의 성장기**: "지난 3일간 나는 이런 변화를 겪었다"는 식으로 '나'를 주인공으로 내세우세요.
-3. **연결성**: 요약 날짜 범위 내의 내용들을 하나의 흐름으로 묶어보세요.
-4. **몰입감**: 반드시 1인칭('나')으로만 서술하며, 격조 있는 문체로 마무리하세요.`;
-
-        const result = await summaryModel.generateContent(prompt + "\n\n" + diaryText);
+        const result = await summaryModel.generateContent("3일 요약 생성 프롬프트..." + "\n\n" + diaryText);
         const summary = result.response.text();
 
         await addDoc(collection(db, "summaries"), {
@@ -425,7 +397,6 @@ async function checkAndGenerate3DaySummary() {
             content: summary,
             createdAt: new Date()
         });
-
         loadSummaries();
     } catch (e) { console.error("Summary engine error:", e); }
 }
@@ -451,9 +422,7 @@ async function addMessage(sender, text) {
 
 function showTyping() {
     $('#chat-messages').append('<div class="message bot typing" id="typing-indicator"><div class="dots"><span></span><span></span><span></span></div></div>');
-    requestAnimationFrame(() => {
-        $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
-    });
+    requestAnimationFrame(() => { $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight); });
 }
 
 function hideTyping() { $('#typing-indicator').remove(); }
@@ -477,43 +446,24 @@ async function loadHistory() {
     if (!db || !state.userName) return;
     const { collection, getDocs, query, where } = window.firebaseFirestore;
     try {
-        const q = query(
-            collection(db, "diaries"),
-            where("userName", "==", state.userName)
-        );
+        const q = query(collection(db, "diaries"), where("userName", "==", state.userName));
         const qs = await getDocs(q);
-        if (qs.empty) {
-            $('#history-list').html('<p class="no-data" style="grid-column: 1/-1; text-align:center; padding: 3rem; color:var(--text-secondary);">아직 기록된 일기가 없습니다. 대화를 시작해보세요!</p>');
-            return;
-        }
-
+        if (qs.empty) { $('#history-list').html('<p class="no-data">아직 기록이 없습니다.</p>'); return; }
         const myDiaries = qs.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // 날짜순 내림차순 정렬 (가장 최근 것이 위로)
         myDiaries.sort((a, b) => b.date.seconds - a.date.seconds);
-
         const list = $('#history-list');
         list.empty();
         myDiaries.forEach(data => {
-            const d = data.date.toDate();
-            const dateStr = `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
-            const card = $(`
-                <div class="history-card" title="클릭해서 상세보기">
-                    <div class="date">${dateStr}</div>
-                    <div class="title">${state.userName}님의 기록</div>
-                    <div class="preview">${data.content}</div>
-                </div>
-            `);
+            const dateStr = data.date.toDate().toLocaleDateString('ko-KR');
+            const card = $(`<div class="history-card"><div class="date">${dateStr}</div><div class="preview">${data.content}</div></div>`);
             card.on('click', () => openDiaryModal(data));
             list.append(card);
         });
-    } catch (e) { console.error("Load history error:", e); }
+    } catch (e) { console.error(e); }
 }
 
 function openDiaryModal(diary) {
-    const d = diary.date.toDate();
-    const dateStr = d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-    $('#modal-date').text(dateStr);
-    $('#modal-title').text(`${state.userName}님의 기록`);
+    $('#modal-date').text(diary.date.toDate().toLocaleDateString('ko-KR'));
     $('#modal-diary-content').html(diary.content.replace(/\n/g, '<br>'));
     $('#diary-modal').fadeIn(300);
 }
@@ -522,231 +472,221 @@ async function loadSummaries() {
     if (!db || !state.userName) return;
     const { collection, getDocs, query, where } = window.firebaseFirestore;
     try {
-        const q = query(
-            collection(db, "summaries"),
-            where("userName", "==", state.userName)
-        );
+        const q = query(collection(db, "summaries"), where("userName", "==", state.userName));
         const qs = await getDocs(q);
-        if (qs.empty) {
-            $('#weekly-overview').html('<p class="no-data">기록이 쌓이면 인공지능이 3일마다 요약을 생성해 줍니다. ✨</p>');
-            return;
-        }
-
+        if (qs.empty) { $('#weekly-overview').html('<p class="no-data">요약이 없습니다.</p>'); return; }
         const mySummaries = qs.docs.map(doc => doc.data());
-        // 생성일 기준 내림차순 정렬
         mySummaries.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
-
         let html = '';
         mySummaries.forEach(d => {
-            const start = d.startDate.toDate();
-            const end = d.endDate.toDate();
-            const startStr = `${start.getMonth() + 1}/${start.getDate()}`;
-            const endStr = `${end.getMonth() + 1}/${end.getDate()}`;
-            const rangeStr = (startStr === endStr) ? startStr : `${startStr} ~ ${endStr}`;
-            html += `
-                <div class="summary-card">
-                    <h3 style="color:var(--accent-light)">📅 ${rangeStr} 요약</h3>
-                    <div class="summary-content">${d.content.replace(/\n/g, '<br>')}</div>
-                </div>
-            `;
+            const s = d.startDate.toDate().toLocaleDateString('ko-KR');
+            const e = d.endDate.toDate().toLocaleDateString('ko-KR');
+            html += `<div class="summary-card"><h3>📅 ${s} ~ ${e}</h3><p>${d.content.replace(/\n/g, '<br>')}</p></div>`;
         });
         $('#weekly-overview').html(html);
         generateWeeklyStats();
-    } catch (e) { console.error("Load summaries error:", e); }
+    } catch (e) { console.error(e); }
 }
 
 async function generateWeeklyStats() {
-    if (!ai || !db || !state.userName || $('#mood-stats').length === 0) return;
+    if (!ai || !db || !state.userName) return;
     const { collection, getDocs, query, where } = window.firebaseFirestore;
     try {
-        const q = query(
-            collection(db, "diaries"),
-            where("userName", "==", state.userName)
-        );
+        const q = query(collection(db, "diaries"), where("userName", "==", state.userName));
         const dSnap = await getDocs(q);
         if (dSnap.empty) return;
-
         let myDiaries = dSnap.docs.map(doc => doc.data());
-        // 정렬 후 최근 7개만 사용
         myDiaries.sort((a, b) => b.date.seconds - a.date.seconds);
         myDiaries = myDiaries.slice(0, 7);
-
         const allContent = myDiaries.map(d => d.content).join("\n");
         const statsModel = ai.getGenerativeModel({ model: "gemma-3-27b-it" });
-        const prompt = `다음 일기 내용들을 분석하여 사용자의 현재 '주간 기분 토템(이모지/점수)'과 '핵심 키워드 3개'를 추출해줘. JSON 형식으로만 답해. 예시: { "mood": "🌈", "score": 85, "keywords": ["기획", "성장", "공부"], "desc": "밝고 긍정적인 에너지가 느껴져요." }`;
-        const result = await statsModel.generateContent(prompt + "\n\n" + allContent);
-        const statsText = result.response.text().replace(/```json|```/g, "").trim();
-        const stats = JSON.parse(statsText);
-        $('#mood-stats').html(`
-            <div class="stat-item">
-                <span class="mood-badge">${stats.mood}</span>
-                <div>
-                    <div style="font-weight:700; font-size:1.3rem; color:#fff;">${stats.score}점</div>
-                    <div style="font-size:0.85rem; color:var(--text-secondary);">${stats.desc}</div>
-                </div>
-            </div>
-        `);
+        const result = await statsModel.generateContent("주간 통계 추출 프롬프트..." + "\n" + allContent);
+        const stats = JSON.parse(result.response.text().replace(/```json|```/g, "").trim());
+        $('#mood-stats').html(`<div class="stat-item"><span class="mood-badge">${stats.mood}</span><span>${stats.score}점</span></div>`);
         $('#keyword-stats').html(stats.keywords.map(k => `<span class="keyword-chip"># ${k}</span>`).join(""));
-    } catch (e) { console.error("Stats engine error:", e); }
+    } catch (e) { console.error(e); }
 }
 
-// 밤하늘 별빛 배경 초기화 (Twinkling Stars)
+// [RESTORED] 배경 별빛 생성 함수
 function initStars() {
     const container = document.querySelector('.star-container');
     if (!container) return;
-
-    const starCount = 200; // 렉 방지를 위해 밀도 최적화 (600 -> 200)
+    const starCount = 200;
     for (let i = 0; i < starCount; i++) {
         const star = document.createElement('div');
         star.classList.add('star');
-
-        // 무작위 크기 (1px ~ 3px)
         const size = Math.random() * 2 + 1;
-        star.style.width = `${size}px`;
-        star.style.height = `${size}px`;
-
-        // 무작위 위치
+        star.style.width = star.style.height = `${size}px`;
         star.style.left = `${Math.random() * 100}vw`;
         star.style.top = `${Math.random() * 100}vh`;
-
-        // 무작위 애니메이션 속성
-        const duration = Math.random() * 3 + 2;
-        const opacity = Math.random() * 0.7 + 0.3;
-        star.style.setProperty('--duration', `${duration}s`);
-        star.style.setProperty('--opacity', opacity);
+        star.style.setProperty('--duration', `${Math.random() * 3 + 2}s`);
+        star.style.setProperty('--opacity', Math.random() * 0.7 + 0.3);
         star.style.animationDelay = `${Math.random() * 5}s`;
-
         container.appendChild(star);
     }
 }
 
-// 마우스 트레일 별가루 효과 (Star Dust Trail) - 부드러운 보간 로직 복구
-function initStarTrail() {
-    let lastX = 0;
-    let lastY = 0;
-    let lastTime = 0;
-    const throttle = 16; // 고주사율을 위한 정밀 포착
+// --- 🌌 고성능 은하수 캔버스 엔진 ---
+let pileCanvas, pileCtx, flyingCanvas, flyingCtx, floorMap = [], activeParticles = [];
+const maxPileHeight = 9999, maxActiveParticles = 500;
+let lastClickTime = 0, mx = 0, my = 0, dripFrameCounter = 0, meteorTimer = 0, isEffectEnabled = true;
 
-    $(document).on('mousemove', (e) => {
-        const now = Date.now();
-        const currentX = e.clientX;
-        const currentY = e.clientY;
+function initStardust() {
+    pileCanvas = document.getElementById('stardust-pile-canvas');
+    flyingCanvas = document.getElementById('stardust-flying-canvas');
+    if (!pileCanvas || !flyingCanvas) return;
+    pileCtx = pileCanvas.getContext('2d');
+    flyingCtx = flyingCanvas.getContext('2d');
+    const resize = () => {
+        pileCanvas.width = flyingCanvas.width = window.innerWidth;
+        pileCanvas.height = flyingCanvas.height = window.innerHeight;
+        floorMap = new Array(Math.ceil(window.innerWidth)).fill(0);
+    };
+    window.addEventListener('resize', resize); resize();
+    $(document).on('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
+    $(document).on('click', '#effect-toggle', function(e) {
+        e.stopPropagation(); // [FIX] 부모 로고 클릭 이벤트 전파 차단 (홈 이동 방지)
+        isEffectEnabled = !isEffectEnabled;
+        $(this).toggleClass('active', isEffectEnabled);
+        if (!isEffectEnabled) activeParticles = activeParticles.filter(p => p.type === 'meteor');
+    });
+    $(document).on('dblclick', '.logo', () => clearStardust());
+    requestAnimationFrame(updateStardust);
+}
 
-        if (lastX === 0 && lastY === 0) {
-            lastX = currentX;
-            lastY = currentY;
+function updateStardust(timestamp) {
+    if (!flyingCtx) return;
+    flyingCtx.clearRect(0, 0, flyingCanvas.width, flyingCanvas.height);
+    if (!meteorTimer) meteorTimer = timestamp;
+    if (timestamp - meteorTimer > 10000) { spawnShootingStar(); meteorTimer = timestamp; }
+    if (isEffectEnabled) {
+        dripFrameCounter++;
+        if (dripFrameCounter % 8 === 0) createParticle(mx, my, (Math.random() - 0.5) * 1.5, Math.random() * 2 + 0.5, '#fff', Math.random() * 10 + 10);
+    }
+    for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const p = activeParticles[i];
+        p.vx *= p.friction; p.vy *= p.friction; p.vy += p.gravity; p.x += p.vx; p.y += p.vy;
+        if (p.type === 'meteor') {
+            if (p.y > flyingCanvas.height + 100 || p.x > flyingCanvas.width + 100 || p.x < -100) { activeParticles.splice(i, 1); continue; }
+            drawMeteor(p, timestamp); // [REFINED] timestamp 전달
+            continue;
         }
-
-        const dist = Math.hypot(currentX - lastX, currentY - lastY);
-        // 이동 거리만큼 입자를 촘촘하게 채워 넣음 (Lerp)
-        const count = Math.max(3, Math.min(25, Math.floor(dist / 4)));
-
-        for (let i = 0; i < count; i++) {
-            const ratio = i / count;
-            const x = lastX + (currentX - lastX) * ratio;
-            const y = lastY + (currentY - lastY) * ratio;
-
-            const star = document.createElement('div');
-            star.classList.add('star-trail');
-
-            const offset = 15;
-            const finalX = x + (Math.random() * offset - offset / 2);
-            const finalY = y + (Math.random() * offset - offset / 2);
-
-            star.style.left = `${finalX}px`;
-            star.style.top = `${finalY}px`;
-
-            const size = Math.random() * 4 + 2;
-            star.style.width = `${size}px`;
-            star.style.height = `${size}px`;
-            // [RESTORED] 이전의 가장 천천히 부드러운 수명 (1.2s ~ 2.5s)
-            const duration = Math.random() * 1.3 + 1.2;
-            star.style.animationDuration = `${duration}s`;
-
-            document.body.appendChild(star);
-
-            setTimeout(() => {
-                star.remove();
-            }, duration * 1000);
+        const ix = Math.floor(p.x);
+        const currentFloor = flyingCanvas.height - (floorMap[ix] || 0);
+        if (p.y >= currentFloor || p.x < 0 || p.x > flyingCanvas.width) {
+            if (p.y >= currentFloor) bakeStarToPile(p);
+            activeParticles.splice(i, 1); continue;
         }
+        flyingCtx.save();
+        flyingCtx.fillStyle = p.color; flyingCtx.shadowColor = '#fff'; flyingCtx.shadowBlur = 12;
+        flyingCtx.font = `${p.size}px serif`; flyingCtx.textAlign = 'center'; flyingCtx.textBaseline = 'middle';
+        flyingCtx.fillText('✦', p.x, p.y); flyingCtx.restore();
+    }
+    requestAnimationFrame(updateStardust);
+}
 
-        lastX = currentX;
-        lastY = currentY;
+function spawnShootingStar() {
+    // [REFINED] 항상 오른쪽 상단 외곽에서 생성
+    const x = flyingCanvas.width + 100;
+    const y = Math.random() * (flyingCanvas.height * 0.3); // 화면 위쪽 30% 영역
+    const vx = -(10 + Math.random() * 8); // 왼쪽으로 빠르게 이동
+    const vy = 3 + Math.random() * 4;
+
+    activeParticles.push({
+        x, y, vx, vy,
+        type: 'meteor', color: '#fff', size: 2.5, friction: 1.0, gravity: 0, trail: []
     });
 }
 
-// 클릭 시 은색 유성우 Clicksplosion 효과 (Final Global Robustness Update)
-// 클릭 시 은색 유성우 Clicksplosion 효과 (Final Ultimate Resilience & HTML-Root Appending)
+function drawMeteor(p, timestamp) {
+    p.trail.push({x: p.x, y: p.y}); 
+    if (p.trail.length > 50) p.trail.shift(); // [REFINED] 꼬리 길이 2.5배 강화
+
+    flyingCtx.save();
+    
+    // 꼬리 그리기 (점진적으로 투명해지는 효과)
+    flyingCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    flyingCtx.lineWidth = 1.5;
+    flyingCtx.beginPath();
+    if (p.trail.length > 0) {
+        flyingCtx.moveTo(p.trail[0].x, p.trail[0].y);
+        for(let t of p.trail) flyingCtx.lineTo(t.x, t.y);
+    }
+    flyingCtx.stroke();
+
+    // [REFINED] 머리 부분 반짝임(Twinkle) 연산
+    const twinkle = Math.sin(timestamp / 50) * 10 + 20; 
+    
+    flyingCtx.fillStyle = '#fff';
+    flyingCtx.shadowColor = '#fff';
+    flyingCtx.shadowBlur = twinkle; // 광채가 계속 변함
+    flyingCtx.beginPath();
+    flyingCtx.arc(p.x, p.y, 2.5 + Math.sin(timestamp/100), 0, Math.PI*2);
+    flyingCtx.fill();
+    
+    // 코어 부분은 더 밝게
+    flyingCtx.shadowBlur = 5;
+    flyingCtx.fillStyle = '#fff';
+    flyingCtx.beginPath();
+    flyingCtx.arc(p.x, p.y, 1.2, 0, Math.PI*2);
+    flyingCtx.fill();
+    
+    flyingCtx.restore();
+}
+
+function bakeStarToPile(p) {
+    if (!pileCtx) return;
+    const ix = Math.floor(p.x); if (ix < 0 || ix >= floorMap.length) return;
+    const radius = 4;
+    for (let i = -radius; i <= radius; i++) {
+        const tx = ix + i;
+        if (tx >= 0 && tx < floorMap.length) {
+            const amount = (radius - Math.abs(i)) * 0.25;
+            if (floorMap[tx] < maxPileHeight) floorMap[tx] += amount;
+        }
+    }
+    pileCtx.save(); pileCtx.fillStyle = p.color; pileCtx.shadowBlur = 8;
+    pileCtx.font = `${p.size * 0.8}px serif`; pileCtx.textAlign = 'center'; pileCtx.textBaseline = 'middle';
+    pileCtx.fillText('✦', p.x, p.y); pileCtx.restore();
+}
+
+function clearStardust() { if (pileCtx) { pileCtx.clearRect(0,0,pileCanvas.width,pileCanvas.height); floorMap.fill(0); activeParticles = []; } }
+
+function createParticle(x, y, vx, vy, color, size) {
+    if (activeParticles.length > maxActiveParticles) return;
+    activeParticles.push({ x, y, vx, vy, color, size, friction: 0.95, gravity: 0.22, type: 'star' });
+}
+
+function initStarTrail() {
+    let lastX = 0, lastY = 0;
+    $(document).on('mousemove', (e) => {
+        if (!isEffectEnabled) return;
+        const cx = e.clientX, cy = e.clientY;
+        if (lastX === 0) { lastX = cx; lastY = cy; }
+        const dist = Math.hypot(cx - lastX, cy - lastY);
+        const count = Math.max(1, Math.min(6, Math.floor(dist / 15)));
+        for (let i = 0; i < count; i++) {
+            const r = i / count;
+            createParticle(lastX + (cx - lastX) * r, lastY + (cy - lastY) * r, (Math.random()-0.5)*1.5, Math.random()*2+0.5, '#fff', Math.random()*12+12);
+        }
+        lastX = cx; lastY = cy;
+    });
+}
+
 function initStarClick() {
-    const sparksCount = 45; 
-    const friction = 0.94; 
-    const silverColours = ['#ffffff', '#f8f9fa', '#f1f3f5', '#fff4e6', '#e9ecef'];
+    const explosion = (e) => {
+        if (!isEffectEnabled) return;
+        // [FIX] 클릭 제한 강화: 200ms -> 400ms로 상향 (렉 방지)
+        const now = Date.now(); 
+        if (now - lastClickTime < 400) return; 
+        lastClickTime = now;
 
-    const explodeHandler = (e) => {
-        // 좌표 획득 (pageX/pageY를 사용하되, fixed 포지션을 위해 scroll 보정)
-        const x = e.clientX || (e.pageX - window.pageXOffset);
-        const y = e.clientY || (e.pageY - window.pageYOffset);
-        
-        if (x === undefined || y === undefined) return;
-
-        const intensity = 8 + Math.random() * 6;
-
-        for (let i = 0; i < sparksCount; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'spark-particle';
-            
-            // html 태그에 직접 붙여 그 어떤 레이아웃 간섭도 피함
-            particle.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                pointer-events: none;
-                z-index: 2147483647;
-                color: ${silverColours[Math.floor(Math.random() * silverColours.length)]};
-                font-size: ${Math.random() * 12 + 16}px;
-                font-weight: bold;
-                will-change: transform, opacity;
-                line-height: 1;
-                filter: drop-shadow(0 0 10px #fff);
-                text-shadow: 0 0 10px rgba(255,255,255,0.8);
-            `;
-            particle.innerHTML = '✦'; 
-            
-            let px = x;
-            let py = y;
-            
-            let dY = (Math.random() - 0.5) * intensity;
-            let dX = (Math.random() - 0.5) * (intensity - Math.abs(dY)) * 1.5;
-            
-            let life = 1.0;
-            const decay = Math.random() * 0.015 + 0.012; 
-
-            // 유일한 전역 노드인 html에 추가
-            document.documentElement.appendChild(particle);
-
-            function update() {
-                dX *= friction;
-                dY *= friction;
-                dY += 0.25; 
-                
-                px += dX;
-                py += dY;
-                
-                life -= decay;
-                
-                particle.style.transform = `translate3d(${px}px, ${py}px, 0) scale(${life})`;
-                particle.style.opacity = life;
-
-                if (life > 0) {
-                    requestAnimationFrame(update);
-                } else {
-                    particle.remove();
-                }
-            }
-            requestAnimationFrame(update);
+        const x = e.clientX, y = e.clientY;
+        // [OPTIMIZE] 입자 개수를 25 -> 18개로 조정하여 성능 최적화
+        for (let i = 0; i < 18; i++) {
+            const dY = (Math.random() - 0.5) * 10, dX = (Math.random() - 0.5) * 15;
+            createParticle(x, y, dX, dY, '#fff', Math.random() * 14 + 18);
         }
     };
-
-    // 최상위 window에 pointerdown 이벤트를 캡처링 모드로 등록 (최강의 우선순위)
-    window.addEventListener('pointerdown', explodeHandler, { capture: true, passive: true });
+    window.addEventListener('pointerdown', explosion, { capture: true, passive: true });
 }

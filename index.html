@@ -16,6 +16,9 @@
 
 <body>
     <div class="star-container"></div>
+    <!-- 🌌 고성능 듀얼 은하수 캔버스 엔진 -->
+    <canvas id="stardust-pile-canvas"></canvas>
+    <canvas id="stardust-flying-canvas"></canvas>
     <!-- Auth Overlay: Login/Signup Screen -->
     <div id="auth-overlay">
         <div class="auth-box">
@@ -78,6 +81,7 @@
             <div class="logo">
                 <i class="fas fa-feather-alt"></i>
                 <span>talkDiary</span>
+                <span id="effect-toggle" class="active" title="별빛 효과 토글">✦</span>
             </div>
             <ul class="nav-links">
                 <li class="active" data-view="chat-view"><i class="fas fa-comment-dots"></i> <span>기록하기</span></li>
@@ -86,7 +90,7 @@
             </ul>
             <div class="user-profile">
                 <div class="avatar" id="user-avatar-container">
-                    <img src="assets/hamster_profile.png" alt="Profile" id="user-profile-img">
+                    <img src="assets/hamster_profile.png?v=999" alt="Profile" id="user-profile-img">
                 </div>
                 <div class="info">
                     <p class="name" id="user-display-name">사용자님</p>
