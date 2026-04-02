@@ -87,7 +87,8 @@
     top: 0;
     left: 0;
     pointer-events: none;
-    z-index: 2147483647; /* 브라우저 최상단 전역 레이어 */
+    z-index: 2147483647;
+    /* 브라우저 최상단 전역 레이어 */
     filter: drop-shadow(0 0 8px rgba(255, 255, 255, 1));
     will-change: transform, opacity;
     line-height: 1;
@@ -97,21 +98,25 @@
     color: #fff;
     font-weight: bold;
 }
+
 /* 🌌 고성능 듀얼 은하수 캔버스 레이어 */
-#stardust-pile-canvas, #stardust-flying-canvas {
+#stardust-pile-canvas,
+#stardust-flying-canvas {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
     pointer-events: none;
-    z-index: 1; /* 배경 별(0)과 메인 UI(2 이상) 사이 */
+    z-index: 1;
+    /* 배경 별(0)과 메인 UI(2 이상) 사이 */
 }
 
 /* 비행 캔버스: 날아다니는 별들의 영롱한 광채 필터 */
 #stardust-flying-canvas {
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
-    z-index: 2; /* 쌓인 별보다 위에 표시 */
+    z-index: 2;
+    /* 쌓인 별보다 위에 표시 */
 }
 
 /* 적설용 캔버스: 안착된 별들의 선명도 유지 */
@@ -131,6 +136,36 @@ body {
     color: var(--text-primary);
     overflow: hidden;
     height: 100vh;
+}
+
+/* Custom Scrollbar - Dark Theme */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(15, 20, 28, 0.5);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(130, 170, 255, 0.3);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+/* For Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(130, 170, 255, 0.3) rgba(15, 20, 28, 0.5);
 }
 
 /* App Layout */
@@ -163,7 +198,8 @@ body {
 /* 🔘 별빛 효과 토글 버튼 스타일 (은빛 다이아몬드 ✦) */
 #effect-toggle {
     margin-left: auto;
-    font-family: serif; /* 다이아몬드 모양을 위한 저격 폰트 */
+    font-family: serif;
+    /* 다이아몬드 모양을 위한 저격 폰트 */
     font-size: 1.3rem;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -174,7 +210,8 @@ body {
 
 #effect-toggle.active {
     opacity: 1;
-    color: #ffffff; /* 순백의 은빛 */
+    color: #ffffff;
+    /* 순백의 은빛 */
     filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.9));
     animation: star-pulse-silver 2s infinite;
 }
@@ -187,9 +224,20 @@ body {
 }
 
 @keyframes star-pulse-silver {
-    0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.6)); }
-    50% { transform: scale(1.15); filter: drop-shadow(0 0 15px rgba(255, 255, 255, 1)); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.6)); }
+    0% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.6));
+    }
+
+    50% {
+        transform: scale(1.15);
+        filter: drop-shadow(0 0 15px rgba(255, 255, 255, 1));
+    }
+
+    100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.6));
+    }
 }
 
 .logo i {
@@ -241,24 +289,30 @@ body {
 .user-profile {
     margin-top: auto;
     display: flex;
+    flex-direction: column;
+    /* 가로에서 세로 배치로 변경 (크기 고려) */
     align-items: center;
-    gap: 12px;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.05);
+    gap: 8px;
+    padding: 1.5rem 1rem;
+    background: transparent;
     border-radius: 16px;
+    text-align: center;
 }
 
 .avatar {
-    width: 44px;
-    height: 44px;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: #000; /* [FIX] 스크린 모드 최적화 배경 */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    border: none;
+    background: transparent;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    /* 그림자 강화 */
+    margin: 0 auto 10px auto;
+    /* 중앙 정렬 유도 */
 }
 
 .avatar img {
@@ -266,7 +320,10 @@ body {
     height: 100%;
     object-fit: contain;
     display: block;
-    mix-blend-mode: screen; /* [FIX] 검은색 배경을 100% 투명하게 처리 */
+    mix-blend-mode: normal;
+    /* 블렌드 모드 제거 */
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    /* 캐릭터 입체감 추가 */
 }
 
 .info .name {
@@ -723,7 +780,8 @@ header h1 {
     left: 0;
     width: 100%;
     height: 100%;
-    background: transparent; /* 배경 별빛을 위해 투명화 */
+    background: transparent;
+    /* 배경 별빛을 위해 투명화 */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -772,7 +830,7 @@ header h1 {
 
 .section-header {
     margin-bottom: 1.5rem;
-    text-align: left;
+    text-align: center;
 }
 
 .section-header h3 {
@@ -800,7 +858,8 @@ header h1 {
 }
 
 .user-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: transparent;
+    /* 전체 카드 배경 투명 */
     border: 1px solid var(--glass-border);
     border-radius: 20px;
     padding: 1.2rem 0.5rem;
@@ -820,9 +879,9 @@ header h1 {
 }
 
 .user-card .avatar {
-    width: 48px;
-    height: 48px;
-    background: #000; /* [FIX] 스크린 모드 위한 검은 배경 */
+    width: 80px;
+    height: 80px;
+    background: transparent;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -830,16 +889,18 @@ header h1 {
     font-size: 1.2rem;
     font-weight: 700;
     color: #fff;
-    margin: 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    overflow: hidden; /* [IMPORTANT] 내부 이미지 마스킹 위해 추가 */
+    margin: 0 auto;
+    border: none;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .user-card .avatar img {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    mix-blend-mode: screen; /* [FIX] 검은색 마스킹 */
+    mix-blend-mode: normal;
+    /* 블렌드 모드 제거 */
 }
 
 .user-card .name {

@@ -3,14 +3,15 @@ let db, ai, model;
 const state = {
     apiKey: '',
     userName: '',
-    preferredTone: 'banmal', // 'banmal' or 'jondaemal'
+    preferredTone: 'banmal',
     selectedDate: new Date().toISOString().split('T')[0],
     isProcessing: false,
     chatHistory: [],
-    authMode: 'selection', // 'selection', 'login', 'signup'
+    authMode: 'selection',
     selectedUserForLogin: null,
-    isDiarySaving: false, // [NEW] 중복 저장 방지 플래그
-    saveTimer: null       // [NEW] 자동 저장 타이머
+    isDiarySaving: false,
+    saveTimer: null,
+    inactivityTimer: null // [NEW] 20초 무입력 감지 타이머
 };
 
 // 시스템 프롬프트: 어제의 기억과 세련된 문체를 위한 지침
@@ -29,7 +30,7 @@ function getSystemPrompt(userName, tone, recentSummary = "") {
     }
 
     return `
-당신은 'talkDiary'의 세심한 기록가이자 친구입니다. 사용자(${userName})의 오늘을 깊이 있게 듣고 기록하세요.
+당신은 'FrienDiary'의 세심한 기록가이자 친구입니다. 사용자(${userName})의 오늘을 깊이 있게 듣고 기록하세요.
 ${summaryContext}
 
 대화 가이드라인:
@@ -70,7 +71,7 @@ $(document).ready(async function () {
     $('#user-input').on('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleUserInput(); } });
     $('.nav-links li').on('click', function () { switchView($(this).data('view')); });
 
-    $(document).on('click', '.logo', function() {
+    $(document).on('click', '.logo', function () {
         if (state.userName) {
             if (confirm('홈 화면으로 이동하시겠습니까? (로그아웃됩니다)')) logout(true);
         } else {
@@ -135,7 +136,7 @@ async function loadUsers() {
 function renderUserCards(users) {
     const $container = $('#user-cards');
     $container.empty();
-    const hamsterImg = "assets/hamster_profile.png?v=999";
+    const hamsterImg = "assets/hamster_profile.png?v=1015";
 
     if (users.length === 0) {
         $container.html('<p style="grid-column: 1/-1; color:var(--text-secondary); font-size:0.9rem;">등록된 이야기가 없습니다.<br>새 이야기를 시작해 보세요!</p>');
@@ -157,7 +158,7 @@ function toggleAuthView(mode) {
     state.authMode = mode;
     // [FIX] 모든 인증 관련 인풋 초기화
     $('#login-password, #signup-name, #signup-password').val('');
-    
+
     $('#user-selection-view, #login-view, #signup-view').hide();
     if (mode === 'selection') $('#user-selection-view').show();
     else if (mode === 'login') {
@@ -223,7 +224,7 @@ function completeLogin(name, tone) {
     // [FIX] 로그인 시 별빛 효과 기본 OFF (대화 집중)
     isEffectEnabled = false;
     $('#effect-toggle').removeClass('active');
-    
+
     startChat();
 }
 
@@ -267,6 +268,7 @@ async function startChat() {
         { role: "model", parts: [{ text: greeting }] }
     ];
     addMessage("bot", greeting);
+    resetInactivityTimer(); // [NEW] 첫 대화 시작 시 타이머 작동
 }
 
 async function getRecentSummary() {
@@ -327,7 +329,10 @@ async function handleUserInput() {
         hideTyping();
         console.error(e);
         addMessage("bot", "잠시 오류가 생겼어. 다시 말해줘!");
-    } finally { state.isProcessing = false; }
+    } finally { 
+        state.isProcessing = false; 
+        resetInactivityTimer(); // [NEW] 응답 완료 후 다시 20초 대기
+    }
 }
 
 async function generateAIDiary() {
@@ -346,7 +351,7 @@ async function generateAIDiary() {
         const finalDiary = result.response.text();
         hideTyping();
         await addMessage("bot", `### ✨ 오늘의 일기 기록<br>\n\n${finalDiary.replace(/\n/g, '<br>')}`);
-        
+
         // [FIX] 대기 없이 즉시 자동 저장 호출
         await saveToFirebase(finalDiary, state.chatHistory);
     } catch (e) {
@@ -361,7 +366,7 @@ async function saveToFirebase(content, history) {
     state.isDiarySaving = true;
 
     const { doc, setDoc, Timestamp, collection, query, where, getDocs, deleteDoc } = window.firebaseFirestore;
-    
+
     // [FIX] 고유 문서 ID 생성 (사용자_날짜)
     const docId = `${state.userName}_${state.selectedDate}`;
     const diaryDate = new Date(state.selectedDate);
@@ -441,6 +446,7 @@ async function checkAndGenerate3DaySummary() {
 }
 
 async function addMessage(sender, text) {
+    if (sender === 'user') resetInactivityTimer(); // [NEW] 사용자 입력 시 타이머 리셋
     const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
     const $msg = $(`<div class="message ${sender}"></div>`);
     $('#chat-messages').append($msg);
@@ -583,7 +589,7 @@ function initStardust() {
     };
     window.addEventListener('resize', resize); resize();
     $(document).on('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
-    $(document).on('click', '#effect-toggle', function(e) {
+    $(document).on('click', '#effect-toggle', function (e) {
         e.stopPropagation(); // [FIX] 부모 로고 클릭 이벤트 전파 차단 (홈 이동 방지)
         isEffectEnabled = !isEffectEnabled;
         $(this).toggleClass('active', isEffectEnabled);
@@ -638,38 +644,38 @@ function spawnShootingStar() {
 }
 
 function drawMeteor(p, timestamp) {
-    p.trail.push({x: p.x, y: p.y}); 
+    p.trail.push({ x: p.x, y: p.y });
     if (p.trail.length > 50) p.trail.shift(); // [REFINED] 꼬리 길이 2.5배 강화
 
     flyingCtx.save();
-    
+
     // 꼬리 그리기 (점진적으로 투명해지는 효과)
     flyingCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     flyingCtx.lineWidth = 1.5;
     flyingCtx.beginPath();
     if (p.trail.length > 0) {
         flyingCtx.moveTo(p.trail[0].x, p.trail[0].y);
-        for(let t of p.trail) flyingCtx.lineTo(t.x, t.y);
+        for (let t of p.trail) flyingCtx.lineTo(t.x, t.y);
     }
     flyingCtx.stroke();
 
     // [REFINED] 머리 부분 반짝임(Twinkle) 연산
-    const twinkle = Math.sin(timestamp / 50) * 10 + 20; 
-    
+    const twinkle = Math.sin(timestamp / 50) * 10 + 20;
+
     flyingCtx.fillStyle = '#fff';
     flyingCtx.shadowColor = '#fff';
     flyingCtx.shadowBlur = twinkle; // 광채가 계속 변함
     flyingCtx.beginPath();
-    flyingCtx.arc(p.x, p.y, 2.5 + Math.sin(timestamp/100), 0, Math.PI*2);
+    flyingCtx.arc(p.x, p.y, 2.5 + Math.sin(timestamp / 100), 0, Math.PI * 2);
     flyingCtx.fill();
-    
+
     // 코어 부분은 더 밝게
     flyingCtx.shadowBlur = 5;
     flyingCtx.fillStyle = '#fff';
     flyingCtx.beginPath();
-    flyingCtx.arc(p.x, p.y, 1.2, 0, Math.PI*2);
+    flyingCtx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
     flyingCtx.fill();
-    
+
     flyingCtx.restore();
 }
 
@@ -689,7 +695,7 @@ function bakeStarToPile(p) {
     pileCtx.fillText('✦', p.x, p.y); pileCtx.restore();
 }
 
-function clearStardust() { if (pileCtx) { pileCtx.clearRect(0,0,pileCanvas.width,pileCanvas.height); floorMap.fill(0); activeParticles = []; } }
+function clearStardust() { if (pileCtx) { pileCtx.clearRect(0, 0, pileCanvas.width, pileCanvas.height); floorMap.fill(0); activeParticles = []; } }
 
 function createParticle(x, y, vx, vy, color, size) {
     if (activeParticles.length > maxActiveParticles) return;
@@ -706,7 +712,7 @@ function initStarTrail() {
         const count = Math.max(1, Math.min(6, Math.floor(dist / 15)));
         for (let i = 0; i < count; i++) {
             const r = i / count;
-            createParticle(lastX + (cx - lastX) * r, lastY + (cy - lastY) * r, (Math.random()-0.5)*1.5, Math.random()*2+0.5, '#fff', Math.random()*12+12);
+            createParticle(lastX + (cx - lastX) * r, lastY + (cy - lastY) * r, (Math.random() - 0.5) * 1.5, Math.random() * 2 + 0.5, '#fff', Math.random() * 12 + 12);
         }
         lastX = cx; lastY = cy;
     });
@@ -716,8 +722,8 @@ function initStarClick() {
     const explosion = (e) => {
         if (!isEffectEnabled) return;
         // [FIX] 클릭 제한 강화: 200ms -> 400ms로 상향 (렉 방지)
-        const now = Date.now(); 
-        if (now - lastClickTime < 400) return; 
+        const now = Date.now();
+        if (now - lastClickTime < 400) return;
         lastClickTime = now;
 
         const x = e.clientX, y = e.clientY;
