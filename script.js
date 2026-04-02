@@ -75,9 +75,16 @@ $(document).ready(async function () {
     $('#send-btn').on('click', handleUserInput);
     $('#user-input').on('keydown', (e) => { 
         if (e.key === 'Enter' && !e.shiftKey) { 
-            if (e.isComposing) return; // [FIX] 한글 IME 조합 중 엔터 입력으로 인한 잔상 및 중복 전송 방지
+            // [MOD] Mac Chrome IME 버그 대응: 조합 중일 때는 이벤트를 무시
+            if (e.isComposing || e.keyCode === 229) return; 
+            
             e.preventDefault(); 
             handleUserInput(); 
+            
+            // [NEW] 입력기 잔상 완벽 소탕: 0ms 지연 후 강제로 한 번 더 비움 (Mac 크롬 필수)
+            setTimeout(() => {
+                $('#user-input').val('');
+            }, 0);
         } 
     });
     $('.nav-links li').on('click', function () { switchView($(this).data('view')); });
