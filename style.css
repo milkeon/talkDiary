@@ -193,6 +193,8 @@ body {
     gap: 12px;
     margin-bottom: 3rem;
     padding: 0 1rem;
+    cursor: pointer;
+    user-select: none;
 }
 
 /* 🔘 별빛 효과 토글 버튼 스타일 (은빛 다이아몬드 ✦) */
