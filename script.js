@@ -73,7 +73,7 @@ $(document).ready(async function () {
 
     $(document).on('click', '.logo', function () {
         if (state.userName) {
-            if (confirm('홈 화면으로 이동하시겠습니까? (로그아웃됩니다)')) logout(true);
+            logout(true);
         } else {
             toggleAuthView('selection');
         }
