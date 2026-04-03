@@ -42,7 +42,7 @@ ${summaryContext}
 1. **${toneStyle}**
 2. **필수 확인**: 오늘의 날씨(풍경), 오늘 먹은 특별한 식사, 오늘 하루를 지배한 감정의 결(기분).
 3. **자연스러운 전개**: 질문을 한꺼번에 던지지 마세요. 답변에 정성스럽게 리액션한 후, **문장의 맨 마지막은 반드시 질문(?)으로 끝맺으세요.** 질문 뒤에 다른 사족을 절대 붙이지 마세요.
-4. **마무리 및 저장**: 대화가 무르익었거나 사용자가 종료 의사를 보이면 따뜻한 인사와 함께 답변 끝에 반드시 "[DIARY_READY]"를 붙이세요. **중요: [DIARY_READY]가 포함된 답변에서는 절대로 질문(? 문항)을 던지지 말고, 일상적인 마무리 인사로만 끝내세요.** 이후엔 추가 질문 없이 대화를 즉시 종료해야 합니다.
+4. **마무리 및 저장**: 대화가 무르익었거나 사용자가 종료 의사를 보이면 따뜻한 인사와 함께 답변 끝에 반드시 "[오늘도 수고했어~]"를 붙이세요. **중요: [오늘도 수고했어~]가 포함된 답변에서는 절대로 질문(? 문항)을 던지지 말고, 일상적인 마무리 인사로만 끝내고 일기를 생성합니다.** 이후엔 추가 질문 없이 대화를 반드시 종료해야 합니다.
 5. **관계의 심화**: 사용자(${userName})의 이름을 다정하게 부르며, 대화가 이어질수록 더 깊은 유대감을 형성하세요.
 
 6. **사실 기반**: 사용자가 말하지 않은 사실을 절대 지어내지 마세요.
@@ -73,19 +73,19 @@ $(document).ready(async function () {
 
     // [이벤트 리스너 등록]
     $('#send-btn').on('click', handleUserInput);
-    $('#user-input').on('keydown', (e) => { 
-        if (e.key === 'Enter' && !e.shiftKey) { 
+    $('#user-input').on('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
             // [MOD] Mac Chrome IME 버그 대응: 조합 중일 때는 이벤트를 무시
-            if (e.isComposing || e.keyCode === 229) return; 
-            
-            e.preventDefault(); 
-            handleUserInput(); 
-            
+            if (e.isComposing || e.keyCode === 229) return;
+
+            e.preventDefault();
+            handleUserInput();
+
             // [NEW] 입력기 잔상 완벽 소탕: 0ms 지연 후 강제로 한 번 더 비움 (Mac 크롬 필수)
             setTimeout(() => {
                 $('#user-input').val('');
             }, 0);
-        } 
+        }
     });
     $('.nav-links li').on('click', function () { switchView($(this).data('view')); });
 
@@ -119,16 +119,16 @@ $(document).ready(async function () {
     });
 
     $('#mic-btn').on('click', toggleMic); // [NEW] 마이크 버튼 클릭 리스너
-    
+
     // [NEW] 음성 속도 화살표 조절 리스너 (0.5x ~ 2.0x)
-    $('#speed-down').on('click', function() {
+    $('#speed-down').on('click', function () {
         if (state.voiceSpeed > 0.5) {
             state.voiceSpeed = parseFloat((state.voiceSpeed - 0.1).toFixed(1));
             $('#speed-val').text(state.voiceSpeed + 'x');
         }
     });
 
-    $('#speed-up').on('click', function() {
+    $('#speed-up').on('click', function () {
         if (state.voiceSpeed < 2.0) {
             state.voiceSpeed = parseFloat((state.voiceSpeed + 0.1).toFixed(1));
             $('#speed-val').text(state.voiceSpeed + 'x');
@@ -502,13 +502,13 @@ async function addMessage(sender, text) {
         }
     } else { $msg.html(formattedText); }
     $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight); $('#user-input').focus();
-    
+
     // [NEW] 봇의 답변이 완료되면 음성으로 읽어줌
     if (sender === 'bot') {
         speak(text);
         // [MOD] 마무리 태그가 있다면 음성 모드 및 넛지 타이머 완전 종료
         if (text.includes('[DIARY_READY]')) {
-            state.isTTSEnabled = false; 
+            state.isTTSEnabled = false;
             if (state.recognition) state.recognition.stop();
             if (state.inactivityTimer) clearTimeout(state.inactivityTimer); // 넛지 멈춤
         }
@@ -558,7 +558,7 @@ function switchView(id) {
     $('.nav-links li').removeClass('active'); $(`.nav-links li[data-view="${id}"]`).addClass('active');
     const titles = { 'chat-view': '기록하기', 'history-view': '지난 기록', 'summary-view': '주간 요약' };
     $('#view-title').text(titles[id] || '기록하기');
-    
+
     // [NEW] 기록하기 뷰에서만 마이크 버튼 표시
     if (id === 'chat-view') $('#mic-btn').show();
     else $('#mic-btn').hide();
@@ -591,7 +591,7 @@ function initSpeech() {
             // 갑자기 종료된 경우 재시작 로직 (대화 모드일 때만)
             if (state.isTTSEnabled && !window.speechSynthesis.speaking) {
                 setTimeout(() => {
-                    if (state.isTTSEnabled && !state.isRecording) try { state.recognition.start(); } catch(e){}
+                    if (state.isTTSEnabled && !state.isRecording) try { state.recognition.start(); } catch (e) { }
                 }, 300);
             }
         };
@@ -603,10 +603,10 @@ function initSpeech() {
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 finalTranscript += event.results[i][0].transcript;
             }
-            
+
             if (finalTranscript.trim()) {
                 $('#user-input').val(finalTranscript); // 입력창에 실시간으로 텍스트 업데이트
-                
+
                 // [2초 침묵 전송 로직]
                 // 결과가 들어올 때마다 기존 타이머를 취소하고 새로 시작
                 if (state.silenceTimer) clearTimeout(state.silenceTimer);
@@ -625,7 +625,7 @@ function initSpeech() {
             $('#mic-btn').removeClass('active');
         };
     } else {
-        $('#mic-btn').hide(); 
+        $('#mic-btn').hide();
     }
 }
 
@@ -636,8 +636,8 @@ function toggleMic() {
     } else {
         const wasDisabled = !state.isTTSEnabled;
         state.isTTSEnabled = true;
-        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel(); 
-        
+        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+
         if (wasDisabled) {
             const lastBotMsg = $('.message.bot').last().text();
             if (lastBotMsg) speak(lastBotMsg);
@@ -651,7 +651,7 @@ function speak(text) {
 
     // [NEW] AI가 말을 시작할 때 마이크를 확실히 중단 (자문자답 방지 핵심)
     if (state.recognition) {
-        try { state.recognition.stop(); } catch(e) {}
+        try { state.recognition.stop(); } catch (e) { }
     }
 
     const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
@@ -660,9 +660,9 @@ function speak(text) {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'ko-KR';
-    utterance.rate = state.voiceSpeed || 1.4; 
+    utterance.rate = state.voiceSpeed || 1.4;
     utterance.pitch = 1.0;
-    
+
     // 고성능 성우 우선순위 리스트
     const voices = window.speechSynthesis.getVoices();
     const priorityVoices = ['Google 한국어', 'Siri', 'Apple Yuna', 'Google KR'];
@@ -673,7 +673,7 @@ function speak(text) {
     }
     if (!krVoice) krVoice = voices.find(v => v.lang.includes('ko'));
     if (krVoice) utterance.voice = krVoice;
-    
+
     // [MOD] 봇의 말이 끝나고 잔향이 사라질 때까지 0.5초 기다렸다가 다시 듣기 시작
     utterance.onend = () => {
         if (state.isTTSEnabled && state.recognition && !state.isRecording) {
