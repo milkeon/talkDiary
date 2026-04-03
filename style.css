@@ -1159,8 +1159,41 @@ header h1 {
     }
 
     .user-profile {
-        display: none;
-        /* 하단바에서 프로필은 숨김 (공간 부족) */
+        display: flex;
+        flex-direction: row; /* 가로 배치 */
+        padding: 0 10px;
+        margin-top: 0;
+        background: transparent;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .user-profile .info {
+        display: flex;
+        align-items: center;
+    }
+
+    .user-profile .name-area {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .user-profile .info .name,
+    .user-profile .info .status {
+        display: none; /* 닉네임과 상태 텍스트만 숨김 */
+    }
+
+    .user-profile .avatar {
+        width: 32px; /* 더 작게 조정 */
+        height: 32px;
+        margin: 0;
+    }
+
+    .user-profile .mic-btn {
+        padding: 5px 8px;
+        font-size: 0.8rem;
+        margin-left: 0;
     }
 
     /* 컨텐츠 영역 조정 */
