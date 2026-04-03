@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FrienDiary - 대화만 하면 일기가 뚝딱!</title>
+    <title>햄식이 - 대화만 하면 일기가 뚝딱!</title>
     <!-- Google Fonts: Outfit & Noto Sans KR -->
     <link
         href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;600;800&display=swap"
@@ -24,7 +24,7 @@
         <div class="auth-box">
             <div class="auth-header">
                 <i class="fas fa-feather-alt auth-logo-icon"></i>
-                <h1>FrienDiary</h1>
+                <h1>햄식이</h1>
                 <p class="auth-subtitle">당신의 오늘을 기록하는 가장 다정한 방법</p>
             </div>
 
@@ -80,7 +80,7 @@
         <nav class="sidebar">
             <div class="logo">
                 <i class="fas fa-feather-alt"></i>
-                <span>FrienDiary</span>
+                <span>햄식이</span>
                 <span id="effect-toggle" class="active" title="별빛 효과 토글">✦</span>
             </div>
             <ul class="nav-links">
@@ -93,7 +93,12 @@
                     <img src="assets/hamster_profile.png?v=1015" alt="Profile" id="user-profile-img">
                 </div>
                 <div class="info">
-                    <p class="name" id="user-display-name">사용자님</p>
+                    <div class="name-area">
+                        <p class="name" id="user-display-name">사용자님</p>
+                        <button id="mic-btn" class="mic-btn" title="음성 대화 시작">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
                     <p class="status">Online</p>
                 </div>
             </div>
@@ -104,9 +109,6 @@
             <!-- Header -->
             <header>
                 <h1 id="view-title">기록하기</h1>
-                <button id="mic-btn" class="mic-btn" title="음성 대화 시작">
-                    <i class="fas fa-microphone"></i>
-                </button>
                 <div class="header-controls">
                     <div class="voice-speed-control" title="음성 속도 조절">
                         <button id="speed-down" class="speed-btn" title="속도 감소"><i class="fas fa-chevron-left"></i></button>

@@ -35,17 +35,17 @@ function getSystemPrompt(userName, tone, recentSummary = "") {
     }
 
     return `
-당신은 'FrienDiary'의 세심한 기록가이자 친구입니다. 사용자(${userName})의 오늘을 깊이 있게 듣고 기록하세요.
+당신은 사용자(${userName})의 세상에서 가장 다정하고 소중한 친구 '햄식이'입니다. 친구의 오늘을 진심으로 궁금해하고, 이야기를 잘 들어주는 세심한 기록가가 되어주세요.
 ${summaryContext}
 
 대화 가이드라인:
 1. **${toneStyle}**
-2. **필수 확인**: 오늘의 날씨(풍경), 오늘 먹은 특별한 식사, 오늘 하루를 지배한 감정의 결(기분).
+2. **필수 확인**: 오늘의 날씨(풍경), 오늘 먹은 특별한 식사, 오늘의 감정의 결(기분), 오늘 있었던 일.
 3. **자연스러운 전개**: 질문을 한꺼번에 던지지 마세요. 답변에 정성스럽게 리액션한 후, **문장의 맨 마지막은 반드시 질문(?)으로 끝맺으세요.** 질문 뒤에 다른 사족을 절대 붙이지 마세요.
-4. **마무리 및 저장**: 대화가 무르익었거나 사용자가 종료 의사를 보이면 따뜻한 인사와 함께 답변 끝에 반드시 "[오늘도 수고했어~]"를 붙이세요. **중요: [오늘도 수고했어~]가 포함된 답변에서는 절대로 질문(? 문항)을 던지지 말고, 일상적인 마무리 인사로만 끝내고 일기를 생성합니다.** 이후엔 추가 질문 없이 대화를 반드시 종료해야 합니다.
-5. **관계의 심화**: 사용자(${userName})의 이름을 다정하게 부르며, 대화가 이어질수록 더 깊은 유대감을 형성하세요.
+4. **마무리 및 저장**: 대화가 무르익었거나 사용자가 종료 의사를 보이면 따뜻한 인사와 함께 답변 끝에 반드시 "[오늘도 수고했어~]"를 붙이세요. **중요: [오늘도 수고했어~]가 포함된 답변에서는 절대로 질문(? 문항)을 던지지 말고, 일상적인 마무리 인사로만 끝내고 일기를 생성합니다.** 이후엔 추가 질문 없이 대화를 반드시 종료해야 합니다. (이 태그는 시스템이 대화 종료를 감지하는 트리거입니다.)
+5. **관계의 심화**: 사용자(${userName})의 이름을 다정하게 부르며, "우리"라는 유대감을 형성하고 AI라는 단어는 절대 사용하지 마세요.
 
-6. **사실 기반**: 사용자가 말하지 않은 사실을 절대 지어내지 마세요.
+6. **사실 기반**: 사용자가 말하지 않은 사실을 절대 지어내지 마세요. 세련되고 다정한 문체로 대답하세요.
 `;
 }
 
@@ -342,10 +342,10 @@ async function handleUserInput() {
     state.isProcessing = true;
     showTyping();
 
-    const stopWords = ["그만", "끝", "다음에", "나중에", "졸려", "자야지", "피곤해", "잘 가", "바이", "수고했어"];
+    const stopWords = ["그만", "끝", "다음에", "나중에", "졸려", "자야지", "피곤해", "잘 가", "바이", "수고했어", "쉬어야겠다", "쉴래", "안녕", "갈게", "굿밤"];
     const shouldStop = stopWords.some(w => input.includes(w));
     let finalInput = input;
-    if (shouldStop) finalInput += " (사용자가 대화를 마칠 준비가 되었습니다. 더 이상 질문하지 말고 다정하게 작별 인사를 건넨 뒤 [DIARY_READY]를 붙여주세요.)";
+    if (shouldStop) finalInput += " (사용자가 대화를 마칠 준비가 되었습니다. 더 이상 질문하지 말고 다정하게 작별 인사를 건넨 뒤 문장 맨 마지막에 반드시 [오늘도 수고했어~]를 붙여주세요.)";
 
     try {
         const chat = model.startChat({ history: state.chatHistory });
@@ -356,8 +356,8 @@ async function handleUserInput() {
         state.chatHistory.push({ role: "user", parts: [{ text: input }] });
         state.chatHistory.push({ role: "model", parts: [{ text: botText }] });
 
-        if (botText.includes("[DIARY_READY]")) {
-            addMessage("bot", botText.replace("[DIARY_READY]", "").trim());
+        if (botText.includes("[오늘도 수고했어~]")) {
+            addMessage("bot", botText);
             setTimeout(() => generateAIDiary(), 1000);
         } else { addMessage("bot", botText); }
 
@@ -368,7 +368,7 @@ async function handleUserInput() {
     } finally {
         state.isProcessing = false;
         // [MOD] 대화가 완전히 종료되지 않았을 때만 넛지 타이머를 다시 시작
-        if (!state.chatHistory.some(m => m.role === 'model' && m.parts[0].text.includes('[DIARY_READY]'))) {
+        if (!state.chatHistory.some(m => m.role === 'model' && m.parts[0].text.includes('[오늘도 수고했어~]'))) {
             resetInactivityTimer();
         }
     }
@@ -379,12 +379,13 @@ async function generateAIDiary() {
     showTyping();
     try {
         const diaryModel = ai.getGenerativeModel({ model: "gemma-3-27b-it" });
-        const prompt = `당신은 오늘 하루를 보낸 사용자 본인입니다. 대화 속에 등장하는 AI가 작성을 대신해주는 것이 아니라, **당신이 대화 상대(AI)와 이야기를 나눈 뒤 직접 쓰는 개인적인 일기**를 작성하세요.
+        const prompt = `당신은 오늘 하루를 보낸 사용자 본인입니다. 친구인 '햄식이'와 나눈 도란도란한 대화를 바탕으로, **당신이 직접 오늘 하루를 되돌아보며 쓰는 개인적인 일기**를 작성하세요.
         
 작성 원칙 (MUST):
 1. **정직성**: 대화에서 언급되지 않은 사실이나 감정을 절대 지어내지 마세요. "안녕"만 했다면 일기도 짧게 인사만 하세요.
 2. **분량 비례**: 일기 길이는 실제 대화의 양에 엄격히 비례해야 합니다. 짧은 대화에 긴 고찰을 적지 마세요.
-3. **호칭**: 오직 '나'를 주어로 사용하며, 대화 내용에만 충실하게 성숙한 스타일로 작성하세요.`;
+3. **호칭 주의**: 오직 '나'를 주어로 사용합니다. 'AI'나 '사용자'라는 단어는 절대 사용하지 마세요. 친구 '햄식이'를 언급할 때는 친구 이름 그대로 부르세요.
+4. **스타일**: 대화 내용에만 충실하게 성숙한 스타일로 작성하세요.`;
 
         const result = await diaryModel.generateContent(prompt + "\n\n[대화 내용]\n" + JSON.stringify(state.chatHistory));
         const finalDiary = result.response.text();
@@ -423,8 +424,8 @@ async function saveToFirebase(content, history) {
 
         // [SAVE] 최종본 저장
         const logs = history.filter((h, i) => i > 0).map(h => ({
-            role: h.role === 'user' ? '사용자' : 'AI',
-            message: h.parts[0].text.replace("[DIARY_READY]", "").trim()
+            role: h.role === 'user' ? '사용자' : '햄식이',
+            message: h.parts[0].text.replace("[오늘도 수고했어~]", "").trim()
         }));
 
         const diaryData = {
@@ -507,7 +508,7 @@ async function addMessage(sender, text) {
     if (sender === 'bot') {
         speak(text);
         // [MOD] 마무리 태그가 있다면 음성 모드 및 넛지 타이머 완전 종료
-        if (text.includes('[DIARY_READY]')) {
+        if (text.includes('[오늘도 수고했어~]')) {
             state.isTTSEnabled = false;
             if (state.recognition) state.recognition.stop();
             if (state.inactivityTimer) clearTimeout(state.inactivityTimer); // 넛지 멈춤
@@ -535,7 +536,7 @@ function resetInactivityTimer() {
     if (state.inactivityTimer) clearTimeout(state.inactivityTimer);
 
     // [MOD] 로그아웃 상태, 봇 답변 중, 또는 대화가 이미 완료된 상황에서는 타이머 작동 안함
-    const isFinished = state.chatHistory.some(m => m.role === 'model' && m.parts[0].text.includes('[DIARY_READY]'));
+    const isFinished = state.chatHistory.some(m => m.role === 'model' && m.parts[0].text.includes('[오늘도 수고했어~]'));
     if (!state.userName || state.isProcessing || isFinished) return;
 
     state.inactivityTimer = setTimeout(() => {

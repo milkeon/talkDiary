@@ -328,9 +328,18 @@ body {
     /* 이미지 생동감 추가 */
 }
 
+.info .name-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
 .info .name {
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: 1rem;
+    /* 조금 더 크게 */
+    font-weight: 700;
 }
 
 .info .status {
@@ -1255,10 +1264,9 @@ header h1 {
     background: rgba(255, 255, 255, 0.05); 
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: 0.9rem; /* 살짝 축소 */
     cursor: pointer;
-    margin-left: 12px;
-    padding: 6px 12px;
+    padding: 4px 8px; /* 사이드바용으로 패딩 축소 */
     border-radius: 20px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
